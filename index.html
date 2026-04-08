@@ -109,11 +109,14 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState,useEffect,useCallback,useRef,useMemo}=React;
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
-const DB_KEY='mcpbolivar_v3';
+const DB_KEY = 'mcpbolivar_v3';
+
+// -------------------------------------------------------------
 // AQUÍ ESTÁ TU VERSIÓN. CAMBIALA ANTES DE CADA COMMIT A GITHUB
-const APP_VERSION = "1.0.1"; 
+// -------------------------------------------------------------
+const APP_VERSION = "1.3.0"; 
 
 function loadDB(){try{const d=localStorage.getItem(DB_KEY);return d?JSON.parse(d):null}catch{return null}}
 function saveDB(db){try{localStorage.setItem(DB_KEY,JSON.stringify(db))}catch(e){alert('Error guardando datos: espacio insuficiente')}}
@@ -1029,114 +1032,150 @@ function ConfigModule({db,setDB}){
     setMsg('Archivo de respaldo descargado');
   }
 
-  // --- ADAPTADOR DE IMPORTACIÓN MEJORADO (LOVABLE Y NUEVO) ---
-  function importDB(e){
-    const f=e.target.files[0];if(!f)return;
-    const r=new FileReader();
-    r.onload=ev=>{
-      try{
-        const data=JSON.parse(ev.target.result);
+  function importDB(e) {
+    const f = e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    
+    r.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
         
-        // Si detecta la estructura vieja de Lovable
-        if(data.options || data.financialRecords || (data.patients && data.patients[0]?.fullName)){
-          let newDB = { patients: [], cities: [], streets: [], deviceTypes: [], brands: [], modes: [], finances: { sessions: [], currentSession: null } };
-          
+        if (data.options || data.financialRecords || (data.patients && data.patients[0] && data.patients[0].fullName)) {
+          let newDB = {
+            patients: [],
+            cities: [],
+            streets: [],
+            deviceTypes: [],
+            brands: [],
+            modes: [],
+            finances: { sessions: [], currentSession: null }
+          };
+
           newDB.patients = data.patients.map(p => {
             const names = (p.fullName || "").split(" ");
             const apellido = names[0] || "";
             const nombre = names.slice(1).join(" ") || "";
             
-            // Usamos UTC para evitar que reste un día a los nacimientos guardados a medianoche
             const d = p.birthDate ? new Date(p.birthDate) : null;
-            const dob = d ? `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}` : "";
+            const dob = d ? `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}` : "";
 
             let telOwner = "Paciente";
-            if(p.contacts[0]?.belongsTo === "child") telOwner = "Hijos";
-            if(p.contacts[0]?.belongsTo === "other") telOwner = "Otros";
+            if (p.contacts && p.contacts[0]) {
+              if (p.contacts[0].belongsTo === "child") telOwner = "Hijos";
+              if (p.contacts[0].belongsTo === "other") telOwner = "Otros";
+            }
 
             let batY = "", batM = "", batPct = "", batType = "percent";
-            if(p.battery?.type === "timeRemaining") {
+            if (p.battery && p.battery.type === "timeRemaining") {
                batType = "time";
-               if(p.battery.unit === "months") {
+               if (p.battery.unit === "months") {
                   batY = Math.floor(p.battery.value / 12);
                   batM = p.battery.value % 12;
                } else {
                   batY = p.battery.value;
                   batM = 0;
                }
-            } else if (p.battery?.type === "percentage") {
+            } else if (p.battery && p.battery.type === "percentage") {
                batPct = p.battery.value;
             }
 
             const consultas = (p.consultations || []).map(c => {
                const cd = c.date ? new Date(c.date) : null;
-               const cdate = cd ? `${String(cd.getDate()).padStart(2,'0')}/${String(cd.getMonth()+1).padStart(2,'0')}/${cd.getFullYear()}` : "";
-               let cbatY="", cbatM="", cbatPct="", cbatType="percent";
-               if(c.battery?.type === "timeRemaining") {
+               const cdate = cd ? `${String(cd.getDate()).padStart(2, '0')}/${String(cd.getMonth() + 1).padStart(2, '0')}/${cd.getFullYear()}` : "";
+               
+               let cbatY = "", cbatM = "", cbatPct = "", cbatType = "percent";
+               if (c.battery && c.battery.type === "timeRemaining") {
                    cbatType = "time";
-                   if(c.battery.unit === "months") {
+                   if (c.battery.unit === "months") {
                       cbatY = Math.floor(c.battery.value / 12);
                       cbatM = c.battery.value % 12;
                    } else {
                       cbatY = c.battery.value;
                       cbatM = 0;
                    }
-                } else if (c.battery?.type === "percentage") {
+                } else if (c.battery && c.battery.type === "percentage") {
                    cbatPct = c.battery.value;
                 }
 
                return {
-                  id: c.id || Date.now().toString()+Math.random(),
-                  date: cdate, brand: c.deviceBrand || "", batteryType: cbatType, batteryPct: cbatPct,
-                  batteryYears: cbatY, batteryMonths: cbatM, obs: c.observations || "", particular: !!c.isPrivate
-               }
+                  id: c.id || Date.now().toString() + Math.random(),
+                  date: cdate,
+                  brand: c.deviceBrand || "",
+                  batteryType: cbatType,
+                  batteryPct: cbatPct,
+                  batteryYears: cbatY,
+                  batteryMonths: cbatM,
+                  obs: c.observations || "",
+                  particular: !!c.isPrivate
+               };
             });
 
             return {
-               id: p.id || Date.now().toString()+Math.random(),
-               apellido, nombre, dob,
-               telPrefix: p.contacts[0]?.phoneNumber?.startsWith("2314") ? "2314" : "",
-               telNum: p.contacts[0]?.phoneNumber?.startsWith("2314") ? p.contacts[0].phoneNumber.slice(4) : (p.contacts[0]?.phoneNumber || ""),
-               telOwner, telContact: p.contacts[0]?.ownerName || "",
-               city: p.address?.city || "", street: p.address?.street || "", streetNum: p.address?.houseNumber || "",
-               deviceType: p.device?.type || "Marcapasos", brand: p.device?.brand || "", mode: p.device?.mode || "",
-               batteryType: batType, batteryPct: batPct, batteryYears: batY, batteryMonths: batM,
-               obs: p.observations || "", consultas
+               id: p.id || Date.now().toString() + Math.random(),
+               apellido,
+               nombre,
+               dob,
+               telPrefix: (p.contacts && p.contacts[0] && p.contacts[0].phoneNumber && p.contacts[0].phoneNumber.startsWith("2314")) ? "2314" : "",
+               telNum: (p.contacts && p.contacts[0] && p.contacts[0].phoneNumber && p.contacts[0].phoneNumber.startsWith("2314")) ? p.contacts[0].phoneNumber.slice(4) : (p.contacts && p.contacts[0] ? p.contacts[0].phoneNumber : ""),
+               telOwner,
+               telContact: (p.contacts && p.contacts[0]) ? p.contacts[0].ownerName : "",
+               city: p.address ? p.address.city : "",
+               street: p.address ? p.address.street : "",
+               streetNum: p.address ? p.address.houseNumber : "",
+               deviceType: p.device ? p.device.type : "Marcapasos",
+               brand: p.device ? p.device.brand : "",
+               mode: p.device ? p.device.mode : "",
+               batteryType: batType,
+               batteryPct: batPct,
+               batteryYears: batY,
+               batteryMonths: batM,
+               obs: p.observations || "",
+               consultas
             };
           });
 
-          if(data.options) {
-             if(data.options.cities) newDB.cities = data.options.cities.map(x=>x.value);
-             if(data.options.streets) newDB.streets = data.options.streets.map(x=>x.value);
-             if(data.options.deviceTypes) newDB.deviceTypes = data.options.deviceTypes.map(x=>x.value);
-             if(data.options.deviceBrands) newDB.brands = data.options.deviceBrands.map(x=>x.value);
+          if (data.options) {
+             if (data.options.cities) newDB.cities = data.options.cities.map(x => x.value);
+             if (data.options.streets) newDB.streets = data.options.streets.map(x => x.value);
+             if (data.options.deviceTypes) newDB.deviceTypes = data.options.deviceTypes.map(x => x.value);
+             if (data.options.deviceBrands) newDB.brands = data.options.deviceBrands.map(x => x.value);
           }
 
-          if(data.financialRecords) {
-             newDB.finances = { currentSession: null, sessions: data.financialRecords.map(f => {
+          if (data.financialRecords) {
+             newDB.finances = {
+                 currentSession: null,
+                 sessions: data.financialRecords.map(f => {
                    const fd = new Date(f.date);
                    return {
-                      id: f.id, date: `${String(fd.getDate()).padStart(2,'0')}/${String(fd.getMonth()+1).padStart(2,'0')}/${fd.getFullYear()}`,
-                      consultaVal: f.consultationValue, alquilerVal: f.officeRent, count: f.patientCount,
-                      total: f.totalValue, tecnico: f.technicianPercentage, secretaria: f.secretaryPercentage
-                   }
+                      id: f.id,
+                      date: `${String(fd.getDate()).padStart(2, '0')}/${String(fd.getMonth() + 1).padStart(2, '0')}/${fd.getFullYear()}`,
+                      consultaVal: f.consultationValue,
+                      alquilerVal: f.officeRent,
+                      count: f.patientCount,
+                      total: f.totalValue,
+                      tecnico: f.technicianPercentage,
+                      secretaria: f.secretaryPercentage
+                   };
                 })
-             }
+             };
           }
           
           setDB(newDB);
-          setMsg(`Migración exitosa: ${newDB.patients.length} pacientes adaptados del formato anterior.`);
+          setMsg(`Migración exitosa: ${newDB.patients.length} pacientes adaptados.`);
         } else {
-          // IMPORTACIÓN NORMAL (NUEVO FORMATO)
-          if(!Array.isArray(data.patients)) throw new Error('Formato inválido: falta la lista de pacientes');
-          setDB(data);setMsg(`Importado exitosamente: ${data.patients.length} pacientes`);
+          if (!Array.isArray(data.patients)) throw new Error('Formato inválido: falta la lista de pacientes');
+          setDB(data);
+          setMsg(`Importado exitosamente: ${data.patients.length} pacientes`);
         }
-      }catch(err){setMsg('Error al importar: '+err.message)}
+      } catch (err) {
+        setMsg('Error al importar: ' + err.message);
+      }
     };
+    
     r.readAsText(f);
-    e.target.value='';
+    e.target.value = '';
   }
-  // -------------------------------------------------------------
 
   return(
     <div>
