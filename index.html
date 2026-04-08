@@ -110,8 +110,10 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 <div id="root"></div>
 <script type="text/babel">
 const {useState,useEffect,useCallback,useRef,useMemo}=React;
-const DB_KEY = 'mcpbolivar_v3';
-const APP_VERSION = "1.0.0"; // ← Cambiá esto cada vez que subas algo a GitHub
+
+const DB_KEY='mcpbolivar_v3';
+// AQUÍ ESTÁ TU VERSIÓN. CAMBIALA ANTES DE CADA COMMIT A GITHUB
+const APP_VERSION = "1.0.1"; 
 
 function loadDB(){try{const d=localStorage.getItem(DB_KEY);return d?JSON.parse(d):null}catch{return null}}
 function saveDB(db){try{localStorage.setItem(DB_KEY,JSON.stringify(db))}catch(e){alert('Error guardando datos: espacio insuficiente')}}
@@ -122,7 +124,7 @@ const DEFAULT={
   streets:[],
   deviceTypes:['Desfibrilador','Marcapasos','Resincronizador'],
   brands:['Biotronik','Boston','Medtronic','Sorin','St Jude'],
-  modes:['VVIR','DDD','DDDR','VVI'],
+  modes:[],
   finances:{sessions:[],currentSession:null}
 };
 
@@ -1027,6 +1029,7 @@ function ConfigModule({db,setDB}){
     setMsg('Archivo de respaldo descargado');
   }
 
+  // --- ADAPTADOR DE IMPORTACIÓN MEJORADO (LOVABLE Y NUEVO) ---
   function importDB(e){
     const f=e.target.files[0];if(!f)return;
     const r=new FileReader();
@@ -1034,7 +1037,7 @@ function ConfigModule({db,setDB}){
       try{
         const data=JSON.parse(ev.target.result);
         
-        // DETECCIÓN AUTOMÁTICA DE FORMATO LOVABLE
+        // Si detecta la estructura vieja de Lovable
         if(data.options || data.financialRecords || (data.patients && data.patients[0]?.fullName)){
           let newDB = { patients: [], cities: [], streets: [], deviceTypes: [], brands: [], modes: [], finances: { sessions: [], currentSession: null } };
           
@@ -1043,8 +1046,9 @@ function ConfigModule({db,setDB}){
             const apellido = names[0] || "";
             const nombre = names.slice(1).join(" ") || "";
             
+            // Usamos UTC para evitar que reste un día a los nacimientos guardados a medianoche
             const d = p.birthDate ? new Date(p.birthDate) : null;
-            const dob = d ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` : "";
+            const dob = d ? `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}` : "";
 
             let telOwner = "Paciente";
             if(p.contacts[0]?.belongsTo === "child") telOwner = "Hijos";
@@ -1132,6 +1136,88 @@ function ConfigModule({db,setDB}){
     r.readAsText(f);
     e.target.value='';
   }
+  // -------------------------------------------------------------
+
+  return(
+    <div>
+      {msg&&<div className="alert alert-success" onClick={()=>setMsg('')} style={{cursor:'pointer'}}>✓ {msg} <span style={{marginLeft:'auto',opacity:.5}}>✕</span></div>}
+      <div className="grid2">
+        {[
+          {label:'Ciudades',key:'cities',val:newCity,set:setNewCity,ph:'Nueva ciudad'},
+          {label:'Marcas de Dispositivos',key:'brands',val:newBrand,set:setNewBrand,ph:'Nueva marca'},
+        ].map(({label,key,val,set,ph})=>(
+          <div className="card" key={key}>
+            <div className="card-title">{label} <span className="badge badge-gray">{db[key].length}</span></div>
+            <div style={{display:'flex',gap:6,marginBottom:'.75rem'}}>
+              <input value={val} onChange={e=>set(e.target.value)} placeholder={ph}
+                onKeyDown={e=>e.key==='Enter'&&add(key,val,set)}/>
+              <button className="btn btn-primary btn-sm" onClick={()=>add(key,val,set)}>+</button>
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+              {db[key].map(x=>(
+                <span key={x} className="chip" style={{cursor:'pointer'}} title="Clic para eliminar"
+                  onClick={()=>remove(key,x)}>{x} ×</span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <div className="card-title">Tipos de Dispositivo <span className="badge badge-gray">{db.deviceTypes.length}</span></div>
+        <div style={{display:'flex',gap:6,marginBottom:'.75rem'}}>
+          <input value={newType} onChange={e=>setNewType(e.target.value)} placeholder="Nuevo tipo"
+            onKeyDown={e=>e.key==='Enter'&&add('deviceTypes',newType,setNewType)}/>
+          <button className="btn btn-primary btn-sm" onClick={()=>add('deviceTypes',newType,setNewType)}>+</button>
+        </div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+          {db.deviceTypes.map(x=>(
+            <span key={x} className="chip" style={{cursor:'pointer'}} onClick={()=>remove('deviceTypes',x)}>{x} ×</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid2">
+        <div className="card">
+          <div className="card-title">Calles aprendidas <span className="badge badge-gray">{db.streets.length}</span></div>
+          {db.streets.length===0
+            ?<p style={{fontSize:13,color:'#a0aec0'}}>Se agregan automáticamente al guardar pacientes.</p>
+            :<div style={{display:'flex',flexWrap:'wrap',gap:5}}>{db.streets.map(x=>(
+              <span key={x} className="chip chip-green" style={{cursor:'pointer'}} title="Clic para eliminar"
+                onClick={()=>remove('streets',x)}>{x} ×</span>
+            ))}</div>}
+        </div>
+        <div className="card">
+          <div className="card-title">Modos aprendidos <span className="badge badge-gray">{db.modes.length}</span></div>
+          {db.modes.length===0
+            ?<p style={{fontSize:13,color:'#a0aec0'}}>Se agregan automáticamente al guardar pacientes.</p>
+            :<div style={{display:'flex',flexWrap:'wrap',gap:5}}>{db.modes.map(x=>(
+              <span key={x} className="chip chip-green" style={{cursor:'pointer'}} title="Clic para eliminar"
+                onClick={()=>remove('modes',x)}>{x} ×</span>
+            ))}</div>}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">📦 Importar / Exportar Base de Datos</div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:'.75rem'}}>
+          <button className="btn btn-success" onClick={exportDB}>⬇ Exportar JSON</button>
+          <label className="btn" style={{cursor:'pointer'}}>
+            ⬆ Importar JSON
+            <input type="file" accept=".json" onChange={importDB} style={{display:'none'}}/>
+          </label>
+        </div>
+        <p style={{fontSize:12,color:'#a0aec0'}}>Exportar guarda toda la base de datos como respaldo. La importación reemplaza todo el contenido actual.</p>
+        <div className="divider"/>
+        <div style={{fontSize:12,color:'#a0aec0'}}>
+          Pacientes: <strong style={{color:'#1a202c'}}>{db.patients.length}</strong> ·
+          Calles: <strong style={{color:'#1a202c'}}>{db.streets.length}</strong> ·
+          Modos: <strong style={{color:'#1a202c'}}>{db.modes.length}</strong>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Print List ────────────────────────────────────────────────────────────────
 function PrintListModal({patients,onClose}){
@@ -1312,12 +1398,9 @@ function App(){
         )}
       </div>
 
-      {/* --- AGREGAR ESTO --- */}
-      <footer style={{textAlign: 'center', padding: '1rem', fontSize: '12px', color: '#a0aec0', borderTop: '0.5px solid #e2e8f0', marginTop: 'auto'}}>
+      <footer style={{textAlign: 'center', padding: '1rem', fontSize: '12px', color: '#a0aec0', borderTop: '0.5px solid #e2e8f0', marginTop: 'auto', background: '#fff'}}>
         Creado por Mariano Lumbreras · V {APP_VERSION}
       </footer>
-      {/* -------------------- */}
-      
     </div>
   );
 }
