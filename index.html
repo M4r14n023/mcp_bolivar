@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCP Bolívar</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f0f4f8;color:#1a202c;min-height:100vh}
+.app{display:flex;flex-direction:column;min-height:100vh}
+.navbar{background:linear-gradient(135deg,#1a56db,#1648c0);color:#fff;padding:0 1.5rem;display:flex;align-items:center;gap:.75rem;height:58px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(26,86,219,.25)}
+.nav-logo{font-size:20px;font-weight:700;letter-spacing:.5px;flex:1;display:flex;align-items:center;gap:8px}
+.nav-logo span{font-size:22px}
+.nav-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{background:rgba(255,255,255,.22)}
+.nav-btn.active{background:#fff;color:#1a56db;font-weight:600}
+.nav-new{background:#fff;color:#1a56db;border:none;padding:7px 16px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;transition:all .15s}
+.nav-new:hover{background:#e8f0fe;transform:scale(1.02)}
+.main{flex:1;padding:1.5rem;max-width:1200px;margin:0 auto;width:100%}
+.card{background:#fff;border-radius:12px;border:.5px solid #e2e8f0;padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:15px;font-weight:600;margin-bottom:1rem;color:#1a202c;display:flex;align-items:center;gap:8px}
+input,select,textarea{width:100%;padding:8px 10px;border:.5px solid #cbd5e0;border-radius:8px;font-size:14px;background:#fff;color:#1a202c;transition:border-color .15s;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#1a56db;box-shadow:0 0 0 3px rgba(26,86,219,.08)}
+label{font-size:13px;color:#4a5568;margin-bottom:4px;display:block;font-weight:500}
+.btn{padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;border:.5px solid #cbd5e0;background:#fff;color:#1a202c;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn:hover{background:#f7fafc;border-color:#a0aec0}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:#1a56db;color:#fff;border-color:#1a56db}
+.btn-primary:hover{background:#1648c0;border-color:#1648c0}
+.btn-danger{background:#e53e3e;color:#fff;border-color:#e53e3e}
+.btn-danger:hover{background:#c53030}
+.btn-success{background:#38a169;color:#fff;border-color:#38a169}
+.btn-success:hover{background:#2f855a}
+.btn-warning{background:#d69e2e;color:#fff;border-color:#d69e2e}
+.btn-warning:hover{background:#b7791f}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-xs{padding:3px 8px;font-size:11px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem}
+.form-group{margin-bottom:.75rem}
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.2px}
+.badge-blue{background:#ebf4ff;color:#1a56db}
+.badge-green{background:#f0fff4;color:#276749}
+.badge-yellow{background:#fffff0;color:#744210;border:.5px solid #ecc94b}
+.badge-red{background:#fff5f5;color:#c53030}
+.badge-gray{background:#f7fafc;color:#4a5568;border:.5px solid #e2e8f0}
+.badge-orange{background:#fffaf0;color:#c05621}
+.table-wrap{overflow-x:auto;border-radius:8px;border:.5px solid #e2e8f0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{padding:9px 12px;text-align:left;font-weight:600;color:#4a5568;background:#f7fafc;border-bottom:.5px solid #e2e8f0;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+td{padding:9px 12px;border-bottom:.5px solid #f0f4f8;color:#1a202c;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8fbff}
+.search-wrap{position:relative}
+.search-wrap input{padding-left:38px;font-size:14px}
+.search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#a0aec0;pointer-events:none;font-size:15px}
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:1.5rem 1rem;overflow-y:auto;backdrop-filter:blur(2px)}
+.modal{background:#fff;border-radius:14px;width:100%;max-width:720px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-lg{max-width:860px}
+.modal-sm{max-width:440px}
+.modal-header{padding:1rem 1.25rem;border-bottom:.5px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;border-radius:14px 14px 0 0}
+.modal-title{font-weight:700;font-size:15px;color:#1a202c}
+.modal-body{padding:1.25rem;max-height:75vh;overflow-y:auto}
+.modal-footer{padding:1rem 1.25rem;border-top:.5px solid #e2e8f0;display:flex;gap:.5rem;justify-content:flex-end;flex-wrap:wrap}
+.tab-bar{display:flex;gap:0;border-bottom:.5px solid #e2e8f0;margin-bottom:1.25rem}
+.tab{padding:9px 18px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;color:#718096;font-weight:500;transition:all .15s}
+.tab:hover{color:#1a202c}
+.tab.active{color:#1a56db;border-bottom-color:#1a56db;font-weight:600}
+.alert{padding:.75rem 1rem;border-radius:9px;font-size:13px;margin-bottom:.75rem;display:flex;align-items:flex-start;gap:8px}
+.alert-success{background:#f0fff4;color:#276749;border:.5px solid #9ae6b4}
+.alert-error{background:#fff5f5;color:#c53030;border:.5px solid #feb2b2}
+.alert-info{background:#ebf8ff;color:#2b6cb0;border:.5px solid #90cdf4}
+.autocomplete-wrap{position:relative}
+.autocomplete-list{position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:.5px solid #cbd5e0;border-radius:9px;z-index:300;max-height:160px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.autocomplete-item{padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:.5px solid #f0f4f8}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item:hover{background:#f0f7ff;color:#1a56db}
+.stat-card{background:#f7fafc;border-radius:10px;padding:.85rem 1rem;text-align:center;border:.5px solid #e2e8f0}
+.stat-num{font-size:22px;font-weight:700;color:#1a56db;line-height:1.2}
+.stat-label{font-size:11px;color:#718096;margin-top:3px;font-weight:500}
+.section-title{font-size:12px;font-weight:700;color:#718096;margin:1rem 0 .5rem;padding-bottom:.35rem;border-bottom:.5px solid #e2e8f0;text-transform:uppercase;letter-spacing:.6px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#ebf4ff;color:#1a56db;border-radius:20px;font-size:12px;font-weight:500;border:.5px solid #bee3f8}
+.chip-green{background:#f0fff4;color:#276749;border-color:#9ae6b4}
+.empty-state{text-align:center;padding:3rem 1rem;color:#a0aec0}
+.empty-icon{font-size:44px;margin-bottom:.75rem;opacity:.6}
+.divider{height:.5px;background:#e2e8f0;margin:.75rem 0}
+.patient-row{cursor:pointer;transition:background .1s}
+.patient-row:hover td{background:#f0f7ff!important}
+.finance-active{border:2px solid #1a56db!important;background:linear-gradient(135deg,#f0f7ff,#fff)!important}
+.radio-group{display:flex;gap:1rem;flex-wrap:wrap}
+.radio-label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#4a5568;font-weight:500;margin-bottom:0}
+input[type=radio]{width:auto;accent-color:#1a56db}
+input[type=checkbox]{width:auto;accent-color:#1a56db}
+.file-drop{border:2px dashed #cbd5e0;border-radius:10px;padding:2rem;text-align:center;cursor:pointer;transition:all .2s;color:#718096;font-size:13px}
+.file-drop:hover,.file-drop.over{border-color:#1a56db;background:#f0f7ff;color:#1a56db}
+.file-drop-icon{font-size:32px;margin-bottom:.5rem;opacity:.7}
+.progress-bar{height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-top:4px}
+.progress-fill{height:100%;border-radius:3px;transition:width .3s}
+@media(max-width:640px){.grid2,.grid3,.grid4{grid-template-columns:1fr}.nav-logo{font-size:16px}.modal-lg{max-width:100%}}
+@media print{.navbar,.no-print{display:none!important}.main{padding:0;max-width:100%}.card{border:none;border-radius:0;box-shadow:none}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef,useMemo}=React;
+const DB_KEY = 'mcpbolivar_v3';
+const APP_VERSION = "1.0.0"; // ← Cambiá esto cada vez que subas algo a GitHub
+
+function loadDB(){try{const d=localStorage.getItem(DB_KEY);return d?JSON.parse(d):null}catch{return null}}
+function saveDB(db){try{localStorage.setItem(DB_KEY,JSON.stringify(db))}catch(e){alert('Error guardando datos: espacio insuficiente')}}
+
+const DEFAULT={
+  patients:[],
+  cities:['Bolívar','Henderson','Pirovano','Urdampilleta'],
+  streets:[],
+  deviceTypes:['Desfibrilador','Marcapasos','Resincronizador'],
+  brands:['Biotronik','Boston','Medtronic','Sorin','St Jude'],
+  modes:['VVIR','DDD','DDDR','VVI'],
+  finances:{sessions:[],currentSession:null}
+};
+
+function initDB(){
+  const s=loadDB();
+  if(!s)return{...DEFAULT};
+  return{
+    patients:s.patients||[],
+    cities:s.cities?.length?s.cities:DEFAULT.cities,
+    streets:s.streets||[],
+    deviceTypes:s.deviceTypes?.length?s.deviceTypes:DEFAULT.deviceTypes,
+    brands:s.brands?.length?s.brands:DEFAULT.brands,
+    modes:s.modes||[],
+    finances:s.finances||DEFAULT.finances
+  };
+}
+
+const sortArr=arr=>[...new Set(arr)].filter(Boolean).sort((a,b)=>a.localeCompare(b,'es'));
+
+function calcAge(dob){
+  if(!dob||dob.length<10)return null;
+  const[d,m,y]=dob.split('/');
+  if(!d||!m||!y||y.length<4)return null;
+  const birth=new Date(+y,+m-1,+d);
+  if(isNaN(birth.getTime()))return null;
+  const now=new Date();
+  let age=now.getFullYear()-birth.getFullYear();
+  const md=now.getMonth()-birth.getMonth();
+  if(md<0||(md===0&&now.getDate()<birth.getDate()))age--;
+  return age<0||age>130?null:age;
+}
+
+function formatDOB(val){
+  const digits=val.replace(/\D/g,'');
+  let out='';
+  for(let i=0;i<digits.length&&i<8;i++){
+    if(i===2||i===4)out+='/';
+    out+=digits[i];
+  }
+  return out;
+}
+
+function todayStr(){
+  const t=new Date();
+  return`${String(t.getDate()).padStart(2,'0')}/${String(t.getMonth()+1).padStart(2,'0')}/${t.getFullYear()}`;
+}
+
+function batteryDisplay(p){
+  if(!p)return'—';
+  if(p.batteryType==='time'){
+    const y=p.batteryYears??'';const m=p.batteryMonths??'';
+    if(y===''&&m==='')return'—';
+    return`${y!==''?y+'a ':''} ${m!==''?m+'m':''}`.trim();
+  }
+  return p.batteryPct!==''&&p.batteryPct!==undefined?`${p.batteryPct}%`:'—';
+}
+
+function batteryColor(p){
+  if(p.batteryType==='percent'){
+    const v=parseFloat(p.batteryPct);
+    if(isNaN(v))return'badge-gray';
+    if(v>=50)return'badge-green';
+    if(v>=25)return'badge-yellow';
+    return'badge-red';
+  }
+  return'badge-blue';
+}
+
+function lastConsulta(p){
+  const cs=p.consultas||[];
+  return cs.length>0?cs[cs.length-1].date:'Sin control';
+}
+
+// ─── Autocomplete Input ───────────────────────────────────────────────────────
+function ACInput({value,onChange,list,placeholder}){
+  const[show,setShow]=useState(false);
+  const[opts,setOpts]=useState([]);
+  const ref=useRef(null);
+
+  useEffect(()=>{
+    const h=e=>{if(ref.current&&!ref.current.contains(e.target))setShow(false)};
+    document.addEventListener('mousedown',h);
+    return()=>document.removeEventListener('mousedown',h);
+  },[]);
+
+  function handleChange(e){
+    const v=e.target.value;
+    onChange(v);
+    if(v.length>0){
+      const f=list.filter(x=>x.toLowerCase().includes(v.toLowerCase())&&x.toLowerCase()!==v.toLowerCase());
+      setOpts(f);setShow(f.length>0);
+    }else{setShow(false)}
+  }
+
+  return(
+    <div className="autocomplete-wrap" ref={ref}>
+      <input value={value} onChange={handleChange}
+        onFocus={()=>{if(value.length>0&&opts.length>0)setShow(true)}}
+        placeholder={placeholder||''}/>
+      {show&&(
+        <div className="autocomplete-list">
+          {opts.map(x=>(
+            <div key={x} className="autocomplete-item"
+              onMouseDown={e=>{e.preventDefault();onChange(x);setShow(false)}}>
+              {x}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Battery Fields ────────────────────────────────────────────────────────────
+function BatteryFields({form,set}){
+  return(
+    <>
+      <div className="radio-group" style={{marginBottom:'.75rem'}}>
+        {['percent','time'].map(t=>(
+          <label key={t} className="radio-label">
+            <input type="radio" checked={form.batteryType===t} onChange={()=>set('batteryType',t)}/>
+            {t==='percent'?'% Restante':'Tiempo restante'}
+          </label>
+        ))}
+      </div>
+      {form.batteryType==='percent'?(
+        <div style={{maxWidth:180}}>
+          <label>Porcentaje (%)</label>
+          <input type="number" min="0" max="100" value={form.batteryPct}
+            onChange={e=>set('batteryPct',e.target.value)} placeholder="85"/>
+          {form.batteryPct!==''&&(
+            <div className="progress-bar" style={{marginTop:6}}>
+              <div className="progress-fill" style={{
+                width:`${Math.min(100,parseFloat(form.batteryPct)||0)}%`,
+                background:parseFloat(form.batteryPct)>=50?'#38a169':parseFloat(form.batteryPct)>=25?'#d69e2e':'#e53e3e'
+              }}/>
+            </div>
+          )}
+        </div>
+      ):(
+        <div className="grid2" style={{maxWidth:280}}>
+          <div><label>Años</label>
+            <input type="number" min="0" value={form.batteryYears} onChange={e=>set('batteryYears',e.target.value)} placeholder="0"/>
+          </div>
+          <div><label>Meses</label>
+            <input type="number" min="0" max="11" value={form.batteryMonths} onChange={e=>set('batteryMonths',e.target.value)} placeholder="6"/>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── Patient Form ──────────────────────────────────────────────────────────────
+function PatientForm({db,setDB,patient,onClose}){
+  const isEdit=!!patient;
+  const[form,setForm]=useState(()=>patient?{...patient}:{
+    id:Date.now().toString(),
+    apellido:'',nombre:'',dob:'',
+    telPrefix:'2314',telNum:'',telOwner:'Paciente',telContact:'',
+    city:'Bolívar',street:'',streetNum:'',
+    deviceType:'Marcapasos',brand:'',mode:'',
+    batteryType:'percent',batteryPct:'',batteryYears:'',batteryMonths:'',
+    obs:'',consultas:[],createdAt:new Date().toISOString()
+  });
+  const[err,setErr]=useState('');
+  const age=useMemo(()=>calcAge(form.dob),[form.dob]);
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  function save(){
+    if(!form.apellido.trim()||!form.nombre.trim()){setErr('Apellido y nombre son requeridos');return}
+    const dup=db.patients.find(p=>
+      p.id!==form.id&&
+      p.apellido.trim().toLowerCase()===form.apellido.trim().toLowerCase()&&
+      p.nombre.trim().toLowerCase()===form.nombre.trim().toLowerCase()
+    );
+    if(dup){setErr(`Ya existe un paciente: ${dup.apellido}, ${dup.nombre}`);return}
+
+    let newDB={...db};
+    const st=form.street?.trim();
+    const mo=form.mode?.trim();
+    if(st&&!newDB.streets.includes(st))newDB.streets=sortArr([...newDB.streets,st]);
+    if(mo&&!newDB.modes.includes(mo))newDB.modes=sortArr([...newDB.modes,mo]);
+
+    const saved={...form,apellido:form.apellido.trim(),nombre:form.nombre.trim()};
+    newDB.patients=isEdit
+      ?newDB.patients.map(p=>p.id===saved.id?saved:p)
+      :[...newDB.patients,saved];
+    setDB(newDB);onClose();
+  }
+
+  return(
+    <div className="modal-overlay">
+      <div className="modal modal-lg">
+        <div className="modal-header">
+          <span className="modal-title">{isEdit?`Editar — ${form.apellido}, ${form.nombre}`:'Nuevo Paciente'}</span>
+          <button className="btn btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          {err&&<div className="alert alert-error">⚠ {err}</div>}
+
+          <div className="section-title">Datos Personales</div>
+          <div className="grid2">
+            <div className="form-group">
+              <label>Apellido *</label>
+              <input value={form.apellido} onChange={e=>set('apellido',e.target.value)} placeholder="García"/>
+            </div>
+            <div className="form-group">
+              <label>Nombre *</label>
+              <input value={form.nombre} onChange={e=>set('nombre',e.target.value)} placeholder="Juan Carlos"/>
+            </div>
+          </div>
+          <div style={{maxWidth:240}} className="form-group">
+            <label>Fecha de Nacimiento</label>
+            <input value={form.dob}
+              onChange={e=>set('dob',formatDOB(e.target.value))}
+              placeholder="DD/MM/AAAA" maxLength={10}/>
+            {age!==null&&(
+              <div style={{fontSize:12,color:'#38a169',marginTop:4,fontWeight:600}}>✓ Edad: {age} años</div>
+            )}
+          </div>
+
+          <div className="section-title">Contacto</div>
+          <div className="grid3">
+            <div className="form-group">
+              <label>Prefijo</label>
+              <input value={form.telPrefix} onChange={e=>set('telPrefix',e.target.value)} placeholder="2314"/>
+            </div>
+            <div className="form-group">
+              <label>Número</label>
+              <input value={form.telNum} onChange={e=>set('telNum',e.target.value)} placeholder="421234"/>
+            </div>
+            <div className="form-group">
+              <label>Pertenece a</label>
+              <select value={form.telOwner} onChange={e=>set('telOwner',e.target.value)}>
+                <option>Paciente</option>
+                <option>Hijos</option>
+                <option>Otros</option>
+              </select>
+            </div>
+          </div>
+          {(form.telOwner==='Hijos'||form.telOwner==='Otros')&&(
+            <div className="form-group">
+              <label>Nombre del contacto</label>
+              <input value={form.telContact} onChange={e=>set('telContact',e.target.value)} placeholder="Nombre del familiar"/>
+            </div>
+          )}
+
+          <div className="section-title">Dirección</div>
+          <div className="grid3">
+            <div className="form-group">
+              <label>Ciudad</label>
+              <select value={form.city} onChange={e=>set('city',e.target.value)}>
+                {db.cities.map(c=><option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Calle <span style={{fontSize:11,color:'#a0aec0'}}>(autocompleta)</span></label>
+              <ACInput value={form.street||''} onChange={v=>set('street',v)}
+                list={db.streets} placeholder="Av. San Martín"/>
+            </div>
+            <div className="form-group">
+              <label>Número</label>
+              <input value={form.streetNum} onChange={e=>set('streetNum',e.target.value)} placeholder="1234"/>
+            </div>
+          </div>
+
+          <div className="section-title">Dispositivo</div>
+          <div className="grid3">
+            <div className="form-group">
+              <label>Tipo</label>
+              <select value={form.deviceType} onChange={e=>set('deviceType',e.target.value)}>
+                {db.deviceTypes.map(t=><option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Marca</label>
+              <select value={form.brand} onChange={e=>set('brand',e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {db.brands.map(b=><option key={b}>{b}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Modo <span style={{fontSize:11,color:'#a0aec0'}}>(autocompleta)</span></label>
+              <ACInput value={form.mode||''} onChange={v=>set('mode',v)}
+                list={db.modes} placeholder="DDDR, VVI..."/>
+            </div>
+          </div>
+
+          <div className="section-title">Batería</div>
+          <BatteryFields form={form} set={set}/>
+
+          <div className="section-title" style={{marginTop:'1rem'}}>Observaciones</div>
+          <textarea rows={3} value={form.obs} onChange={e=>set('obs',e.target.value)}
+            placeholder="Notas clínicas adicionales..."/>
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={save}>
+            {isEdit?'💾 Guardar Cambios':'✓ Crear Paciente'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Consulta Form ─────────────────────────────────────────────────────────────
+function ConsultaForm({patient,db,setDB,onClose}){
+  const[form,setForm]=useState({
+    id:Date.now().toString(),
+    date:todayStr(),
+    brand:patient.brand||'',
+    batteryType:patient.batteryType||'percent',
+    batteryPct:patient.batteryPct||'',
+    batteryYears:patient.batteryYears||'',
+    batteryMonths:patient.batteryMonths||'',
+    obs:'sin particularidades',
+    particular:false
+  });
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  function save(){
+    const newC={...form};
+    const updP={...patient,
+      consultas:[...(patient.consultas||[]),newC],
+      brand:form.brand,
+      batteryType:form.batteryType,
+      batteryPct:form.batteryPct,
+      batteryYears:form.batteryYears,
+      batteryMonths:form.batteryMonths
+    };
+    let newDB={...db,patients:db.patients.map(p=>p.id===patient.id?updP:p)};
+    if(!form.particular&&newDB.finances?.currentSession){
+      newDB.finances={...newDB.finances,currentSession:{
+        ...newDB.finances.currentSession,
+        count:(newDB.finances.currentSession.count||0)+1
+      }};
+    }
+    setDB(newDB);onClose();
+  }
+
+  return(
+    <div className="modal-overlay" style={{zIndex:300}}>
+      <div className="modal modal-sm">
+        <div className="modal-header">
+          <span className="modal-title">Nueva Consulta</span>
+          <button className="btn btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <p style={{fontSize:13,color:'#718096',marginBottom:'1rem'}}>
+            Paciente: <strong style={{color:'#1a202c'}}>{patient.apellido}, {patient.nombre}</strong>
+          </p>
+          <div className="grid2">
+            <div className="form-group"><label>Fecha</label>
+              <input value={form.date} onChange={e=>set('date',e.target.value)}/>
+            </div>
+            <div className="form-group"><label>Marca</label>
+              <select value={form.brand} onChange={e=>set('brand',e.target.value)}>
+                <option value="">—</option>
+                {db.brands.map(b=><option key={b}>{b}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="section-title">Batería en esta consulta</div>
+          <BatteryFields form={form} set={set}/>
+          <div className="form-group" style={{marginTop:'.75rem'}}>
+            <label>Observaciones</label>
+            <textarea rows={3} value={form.obs} onChange={e=>set('obs',e.target.value)}/>
+          </div>
+          <label className="radio-label" style={{marginTop:'.5rem'}}>
+            <input type="checkbox" checked={form.particular} onChange={e=>set('particular',e.target.checked)}/>
+            <span>Consulta Particular <span style={{color:'#718096',fontWeight:400}}>(no impacta en finanzas)</span></span>
+          </label>
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={save}>Guardar Consulta</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── PDF Generator ─────────────────────────────────────────────────────────────
+function PDFGenerator({patient,onClose}){
+  const[pdfFile,setPdfFile]=useState(null);
+  const[status,setStatus]=useState('');
+  const[dragging,setDragging]=useState(false);
+  const fileRef=useRef(null);
+
+  function handleFile(f){
+    if(f&&f.type==='application/pdf'){setPdfFile(f);setStatus('')}
+    else{setStatus('Solo se aceptan archivos PDF')}
+  }
+
+  async function generateCoverPDF(){
+    try{
+      setStatus('⏳ Generando portada...');
+      const{jsPDF}=window.jspdf;
+      const doc=new jsPDF({unit:'mm',format:'a4'});
+
+      doc.setFillColor(26,86,219);
+      doc.rect(0,0,210,45,'F');
+      doc.setFillColor(16,60,180);
+      doc.rect(0,38,210,7,'F');
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(24);doc.setFont('helvetica','bold');
+      doc.text('MCP Bolívar',14,22);
+      doc.setFontSize(11);doc.setFont('helvetica','normal');
+      doc.text('Sistema de Gestión de Cardiología',14,32);
+
+      doc.setTextColor(26,86,219);
+      doc.setFontSize(20);doc.setFont('helvetica','bold');
+      doc.text(`${patient.apellido}, ${patient.nombre}`,14,62);
+
+      const age=calcAge(patient.dob);
+      if(age!==null){
+        doc.setFillColor(235,244,255);
+        doc.roundedRect(14,67,40,10,3,3,'F');
+        doc.setTextColor(26,86,219);
+        doc.setFontSize(10);doc.setFont('helvetica','bold');
+        doc.text(`${age} años`,17,74);
+      }
+
+      doc.setDrawColor(226,232,240);
+      doc.setLineWidth(0.5);
+      doc.line(14,82,196,82);
+
+      const rows=[
+        ['Fecha de Nacimiento',patient.dob||'—'],
+        ['Ciudad',patient.city||'—'],
+        ['Dirección',`${patient.street||''} ${patient.streetNum||''}`.trim()||'—'],
+        ['Teléfono',`${patient.telPrefix||''} ${patient.telNum||''}`.trim()||'—'],
+      ];
+      if(patient.telOwner!=='Paciente'&&patient.telContact){
+        rows.push(['Contacto',`${patient.telContact} (${patient.telOwner})`]);
+      }
+      rows.push(
+        ['Dispositivo',`${patient.deviceType||'—'} — ${patient.brand||'—'}`],
+        ['Modo',patient.mode||'—'],
+        ['Estado Batería',batteryDisplay(patient)],
+        ['Último Control',lastConsulta(patient)]
+      );
+
+      let y=92;
+      rows.forEach(([k,v],i)=>{
+        if(i%2===0){doc.setFillColor(247,250,252);doc.rect(14,y-5,182,8,'F')}
+        doc.setFont('helvetica','bold');doc.setFontSize(10);
+        doc.setTextColor(74,85,104);doc.text(k,16,y);
+        doc.setFont('helvetica','normal');doc.setTextColor(26,32,44);
+        doc.text(String(v),90,y);
+        y+=10;
+      });
+
+      if(patient.obs){
+        y+=4;
+        doc.setFillColor(240,247,255);
+        const obsLines=doc.splitTextToSize(patient.obs,170);
+        doc.rect(14,y-5,182,obsLines.length*6+8,'F');
+        doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(74,85,104);
+        doc.text('Observaciones',16,y);y+=7;
+        doc.setFont('helvetica','normal');doc.setTextColor(26,32,44);
+        doc.text(obsLines,16,y);
+        y+=obsLines.length*6+4;
+      }
+
+      const cs=patient.consultas||[];
+      if(cs.length>0){
+        y+=8;
+        if(y>240){doc.addPage();y=20}
+        doc.setFillColor(26,86,219);
+        doc.rect(14,y-5,182,10,'F');
+        doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(10);
+        doc.text('Historial de Consultas',16,y+1);
+        y+=10;
+
+        const widths=[32,32,28,70,20];
+        const headers=['Fecha','Marca','Batería','Observaciones','Tipo'];
+        headers.forEach((h,i)=>{
+          doc.setFillColor(247,250,252);
+          let xOff=14+widths.slice(0,i).reduce((a,b)=>a+b,0);
+          doc.rect(xOff,y-4,widths[i],8,'F');
+          doc.setTextColor(74,85,104);doc.setFont('helvetica','bold');doc.setFontSize(9);
+          doc.text(h,xOff+2,y+1);
+        });
+        y+=8;
+
+        [...cs].reverse().forEach((c,idx)=>{
+          if(y>275){doc.addPage();y=20}
+          const row=[
+            c.date||'—',c.brand||'—',
+            c.batteryType==='time'?`${c.batteryYears||0}a ${c.batteryMonths||0}m`:`${c.batteryPct||'—'}%`,
+            (c.obs||'').substring(0,45)+(c.obs?.length>45?'...':''),
+            c.particular?'Part.':'Normal'
+          ];
+          if(idx%2===0){doc.setFillColor(250,252,255);doc.rect(14,y-4,182,8,'F')}
+          row.forEach((v,i)=>{
+            let xOff=14+widths.slice(0,i).reduce((a,b)=>a+b,0);
+            doc.setFont('helvetica','normal');doc.setFontSize(9);
+            doc.setTextColor(26,32,44);
+            doc.text(String(v),xOff+2,y+1,{maxWidth:widths[i]-4});
+          });
+          y+=9;
+        });
+      }
+
+      doc.setFontSize(8);doc.setTextColor(160,174,192);
+      doc.text(`Generado el ${todayStr()} — MCP Bolívar`,14,290);
+      doc.text(`Pág. 1`,190,290,{align:'right'});
+
+      return doc.output('arraybuffer');
+    }catch(e){
+      setStatus('Error generando portada: '+e.message);
+      return null;
+    }
+  }
+
+  async function generateAndMerge(){
+    const coverBuf=await generateCoverPDF();
+    if(!coverBuf)return;
+
+    if(!pdfFile){
+      const blob=new Blob([coverBuf],{type:'application/pdf'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download=`Informe_${patient.apellido}_${patient.nombre}.pdf`;a.click();
+      URL.revokeObjectURL(url);
+      setStatus('✓ Portada descargada');
+      return;
+    }
+
+    try{
+      setStatus('⏳ Fusionando PDFs...');
+      const{PDFDocument}=window.PDFLib;
+      const extBuf=await pdfFile.arrayBuffer();
+      const coverDoc=await PDFDocument.load(coverBuf);
+      const extDoc=await PDFDocument.load(extBuf);
+      const mergedDoc=await PDFDocument.create();
+      const coverPages=await mergedDoc.copyPages(coverDoc,[...Array(coverDoc.getPageCount()).keys()]);
+      coverPages.forEach(p=>mergedDoc.addPage(p));
+      const extPages=await mergedDoc.copyPages(extDoc,[...Array(extDoc.getPageCount()).keys()]);
+      extPages.forEach(p=>mergedDoc.addPage(p));
+      const mergedBytes=await mergedDoc.save();
+      const blob=new Blob([mergedBytes],{type:'application/pdf'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download=`Informe_${patient.apellido}_${patient.nombre}.pdf`;a.click();
+      URL.revokeObjectURL(url);
+      setStatus('✓ PDF combinado descargado exitosamente');
+    }catch(e){
+      setStatus('Error fusionando: '+e.message);
+    }
+  }
+
+  return(
+    <div className="modal-overlay" style={{zIndex:300}}>
+      <div className="modal modal-sm">
+        <div className="modal-header">
+          <span className="modal-title">📄 Generar Informe PDF</span>
+          <button className="btn btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="alert alert-info">
+            El sistema genera una portada con los datos del paciente. Opcionalmente podés adjuntar un PDF externo (estudio, ECG, etc.) que se fusionará al final.
+          </div>
+          <p style={{fontWeight:600,fontSize:14,marginBottom:'.5rem'}}>
+            {patient.apellido}, {patient.nombre}
+          </p>
+          <p style={{fontSize:12,color:'#718096',marginBottom:'1.25rem'}}>
+            {patient.deviceType} — {patient.brand} — Batería: {batteryDisplay(patient)}
+          </p>
+          <div className="section-title">PDF Externo (opcional)</div>
+          <div
+            className={`file-drop${dragging?' over':''}`}
+            onClick={()=>fileRef.current.click()}
+            onDragOver={e=>{e.preventDefault();setDragging(true)}}
+            onDragLeave={()=>setDragging(false)}
+            onDrop={e=>{e.preventDefault();setDragging(false);handleFile(e.dataTransfer.files[0])}}
+          >
+            <div className="file-drop-icon">📎</div>
+            {pdfFile
+              ?<p style={{color:'#1a56db',fontWeight:600}}>{pdfFile.name}</p>
+              :<><p>Arrastrá un PDF aquí o hacé clic para seleccionar</p>
+                <p style={{fontSize:11,marginTop:4,color:'#a0aec0'}}>Estudios, ECG, resultados...</p></>
+            }
+          </div>
+          <input ref={fileRef} type="file" accept=".pdf" style={{display:'none'}}
+            onChange={e=>handleFile(e.target.files[0])}/>
+          {pdfFile&&(
+            <button className="btn btn-xs" style={{marginTop:6}} onClick={()=>setPdfFile(null)}>
+              ✕ Quitar archivo
+            </button>
+          )}
+          {status&&(
+            <div className={`alert ${status.startsWith('✓')?'alert-success':status.startsWith('⏳')?'alert-info':'alert-error'}`} style={{marginTop:'1rem'}}>
+              {status}
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose}>Cerrar</button>
+          <button className="btn btn-primary" onClick={generateAndMerge}>
+            {pdfFile?'📥 Generar y Fusionar PDF':'📥 Generar Portada PDF'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Patient Detail ────────────────────────────────────────────────────────────
+function PatientDetail({patientId,db,setDB,onClose,onEdit}){
+  const[tab,setTab]=useState('info');
+  const[showConsulta,setShowConsulta]=useState(false);
+  const[showPDF,setShowPDF]=useState(false);
+  const patient=db.patients.find(p=>p.id===patientId);
+  if(!patient)return null;
+  const age=calcAge(patient.dob);
+  const cs=[...(patient.consultas||[])].reverse();
+
+  function deleteConsulta(cid){
+    if(!window.confirm('¿Eliminar esta consulta?'))return;
+    const updated={...patient,consultas:(patient.consultas||[]).filter(c=>c.id!==cid)};
+    setDB({...db,patients:db.patients.map(p=>p.id===patient.id?updated:p)});
+  }
+
+  function deletePatient(){
+    if(!window.confirm(`¿Eliminar a ${patient.apellido}, ${patient.nombre}? Esta acción no se puede deshacer.`))return;
+    setDB({...db,patients:db.patients.filter(p=>p.id!==patient.id)});
+    onClose();
+  }
+
+  return(
+    <>
+      {showConsulta&&<ConsultaForm patient={patient} db={db} setDB={setDB} onClose={()=>setShowConsulta(false)}/>}
+      {showPDF&&<PDFGenerator patient={patient} onClose={()=>setShowPDF(false)}/>}
+      <div className="modal-overlay">
+        <div className="modal modal-lg">
+          <div className="modal-header">
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <div style={{width:40,height:40,borderRadius:'50%',background:'#ebf4ff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:14,color:'#1a56db'}}>
+                {patient.apellido[0]}{patient.nombre[0]}
+              </div>
+              <div>
+                <div style={{fontWeight:700,fontSize:15}}>{patient.apellido}, {patient.nombre}</div>
+                <div style={{fontSize:12,color:'#718096'}}>
+                  {age&&`${age} años · `}{patient.deviceType} — {patient.brand||'Sin marca'}
+                </div>
+              </div>
+            </div>
+            <button className="btn btn-sm" onClick={onClose}>✕</button>
+          </div>
+          <div style={{padding:'0 1.25rem'}}>
+            <div className="tab-bar">
+              <div className={`tab ${tab==='info'?'active':''}`} onClick={()=>setTab('info')}>Ficha Clínica</div>
+              <div className={`tab ${tab==='consultas'?'active':''}`} onClick={()=>setTab('consultas')}>
+                Consultas {cs.length>0&&<span className="badge badge-blue" style={{marginLeft:4}}>{cs.length}</span>}
+              </div>
+            </div>
+          </div>
+
+          {tab==='info'&&(
+            <div className="modal-body">
+              <div className="grid2">
+                <div>
+                  <div className="section-title">Datos Personales</div>
+                  {[
+                    ['Fecha de Nac.',patient.dob||'—'],
+                    ['Edad',age?`${age} años`:'—'],
+                    ['Teléfono',`${patient.telPrefix} ${patient.telNum}`+(patient.telOwner!=='Paciente'?` · ${patient.telOwner}: ${patient.telContact}`:'')],
+                    ['Ciudad',patient.city||'—'],
+                    ['Dirección',`${patient.street||''} ${patient.streetNum||''}`.trim()||'—'],
+                  ].map(([k,v])=>(
+                    <div key={k} style={{display:'flex',gap:8,marginBottom:6,fontSize:13}}>
+                      <span style={{color:'#718096',minWidth:100,fontWeight:500}}>{k}</span>
+                      <span>{v}</span>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <div className="section-title">Dispositivo</div>
+                  {[
+                    ['Tipo',patient.deviceType||'—'],
+                    ['Marca',patient.brand||'—'],
+                    ['Modo',patient.mode||'—'],
+                    ['Batería',batteryDisplay(patient)],
+                    ['Último Control',lastConsulta(patient)],
+                  ].map(([k,v])=>(
+                    <div key={k} style={{display:'flex',gap:8,marginBottom:6,fontSize:13}}>
+                      <span style={{color:'#718096',minWidth:100,fontWeight:500}}>{k}</span>
+                      <span>{k==='Batería'?<span className={`badge ${batteryColor(patient)}`}>{v}</span>:v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {patient.obs&&(
+                <div style={{marginTop:'.5rem',background:'#f7fafc',borderRadius:8,padding:'.75rem',fontSize:13,color:'#4a5568',border:'.5px solid #e2e8f0'}}>
+                  <strong style={{color:'#4a5568',display:'block',marginBottom:4}}>Observaciones</strong>
+                  {patient.obs}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab==='consultas'&&(
+            <div className="modal-body">
+              {cs.length===0?(
+                <div className="empty-state">
+                  <div className="empty-icon">📋</div>
+                  <p>Sin consultas registradas</p>
+                </div>
+              ):(
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>Fecha</th><th>Marca</th><th>Batería</th><th>Observaciones</th><th>Tipo</th><th></th></tr></thead>
+                    <tbody>
+                      {cs.map(c=>(
+                        <tr key={c.id}>
+                          <td style={{fontWeight:500}}>{c.date}</td>
+                          <td>{c.brand||'—'}</td>
+                          <td>
+                            <span className={`badge ${c.batteryType==='time'?'badge-blue':'badge-green'}`}>
+                              {c.batteryType==='time'?`${c.batteryYears||0}a ${c.batteryMonths||0}m`:`${c.batteryPct||'—'}%`}
+                            </span>
+                          </td>
+                          <td style={{maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#4a5568'}}>{c.obs}</td>
+                          <td>{c.particular?<span className="badge badge-yellow">Particular</span>:<span className="badge badge-gray">Normal</span>}</td>
+                          <td><button className="btn btn-xs btn-danger" onClick={()=>deleteConsulta(c.id)}>✕</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="modal-footer">
+            <button className="btn btn-xs btn-danger" onClick={deletePatient}>Eliminar</button>
+            <div style={{flex:1}}/>
+            <button className="btn btn-sm" onClick={()=>setShowPDF(true)}>📄 Informe PDF</button>
+            <button className="btn btn-sm" onClick={()=>setShowConsulta(true)}>+ Nueva Consulta</button>
+            <button className="btn btn-primary btn-sm" onClick={()=>onEdit(patient)}>✏️ Editar</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Finance Module ────────────────────────────────────────────────────────────
+function FinanceModule({db,setDB}){
+  const[showOpen,setShowOpen]=useState(false);
+  const[consultaVal,setConsultaVal]=useState('');
+  const[alquilerVal,setAlquilerVal]=useState('');
+  const fin=db.finances||{sessions:[],currentSession:null};
+  const cs=fin.currentSession;
+
+  function start(){
+    const cv=parseFloat(consultaVal);const av=parseFloat(alquilerVal);
+    if(isNaN(cv)||cv<=0||isNaN(av)||av<=0){alert('Ingresá valores válidos mayores a 0');return}
+    setDB({...db,finances:{...fin,currentSession:{
+      id:Date.now().toString(),
+      date:todayStr(),
+      consultaVal:cv,alquilerVal:av,count:0
+    }}});
+    setShowOpen(false);setConsultaVal('');setAlquilerVal('');
+  }
+
+  function close(){
+    if(!cs)return;
+    if(!window.confirm('¿Cerrar la jornada actual?'))return;
+    const total=cs.consultaVal*cs.count;
+    const tecnico=cs.alquilerVal*0.8;
+    const secretaria=cs.alquilerVal*0.2;
+    setDB({...db,finances:{
+      sessions:[...(fin.sessions||[]),{...cs,total,tecnico,secretaria,closedAt:new Date().toISOString()}],
+      currentSession:null
+    }});
+  }
+
+  function deleteSession(sid){
+    if(!window.confirm('¿Eliminar este registro?'))return;
+    setDB({...db,finances:{...fin,sessions:(fin.sessions||[]).filter(s=>s.id!==sid)}});
+  }
+
+  const sessions=[...(fin.sessions||[])].reverse();
+
+  return(
+    <div>
+      {showOpen&&(
+        <div className="modal-overlay">
+          <div className="modal modal-sm">
+            <div className="modal-header"><span className="modal-title">Abrir Jornada</span>
+              <button className="btn btn-sm" onClick={()=>setShowOpen(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="alert alert-info">Los pacientes se cuentan automáticamente al guardar consultas no marcadas como "Particulares".</div>
+              <div className="form-group">
+                <label>Valor de la Consulta ($)</label>
+                <input type="number" value={consultaVal} onChange={e=>setConsultaVal(e.target.value)} placeholder="5000" autoFocus/>
+              </div>
+              <div className="form-group">
+                <label>Valor del Alquiler ($)</label>
+                <input type="number" value={alquilerVal} onChange={e=>setAlquilerVal(e.target.value)} placeholder="10000"/>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn" onClick={()=>setShowOpen(false)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={start}>Abrir Jornada</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cs?(
+        <div className="card finance-active">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
+            <div>
+              <div style={{fontWeight:700,fontSize:15,color:'#1a56db'}}>● Jornada Activa — {cs.date}</div>
+              <div style={{fontSize:12,color:'#718096',marginTop:2}}>Consulta: ${cs.consultaVal?.toLocaleString('es-AR')} · Alquiler: ${cs.alquilerVal?.toLocaleString('es-AR')}</div>
+            </div>
+            <button className="btn btn-danger btn-sm" onClick={close}>Cerrar Jornada</button>
+          </div>
+          <div className="grid4">
+            <div className="stat-card"><div className="stat-num" style={{fontSize:28}}>{cs.count}</div><div className="stat-label">Pacientes atendidos</div></div>
+            <div className="stat-card"><div className="stat-num">${(cs.consultaVal*(cs.count||0)).toLocaleString('es-AR')}</div><div className="stat-label">Ingreso total estimado</div></div>
+            <div className="stat-card"><div className="stat-num" style={{color:'#38a169'}}>${(cs.alquilerVal*0.8).toLocaleString('es-AR')}</div><div className="stat-label">Técnico (80% alquiler)</div></div>
+            <div className="stat-card"><div className="stat-num" style={{color:'#d69e2e'}}>${(cs.alquilerVal*0.2).toLocaleString('es-AR')}</div><div className="stat-label">Secretaria (20% alquiler)</div></div>
+          </div>
+        </div>
+      ):(
+        <div className="card" style={{textAlign:'center',padding:'2.5rem'}}>
+          <div style={{fontSize:40,marginBottom:'.5rem',opacity:.5}}>💼</div>
+          <p style={{color:'#718096',marginBottom:'1rem',fontSize:14}}>No hay jornada activa</p>
+          <button className="btn btn-primary" onClick={()=>setShowOpen(true)}>Abrir Nueva Jornada</button>
+        </div>
+      )}
+
+      <div className="card">
+        <div className="card-title">📊 Historial de Jornadas Cerradas</div>
+        {sessions.length===0?(
+          <div className="empty-state"><p>Sin jornadas cerradas aún</p></div>
+        ):(
+          <>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.75rem',marginBottom:'1rem'}}>
+              <div className="stat-card"><div className="stat-num">{sessions.length}</div><div className="stat-label">Jornadas totales</div></div>
+              <div className="stat-card"><div className="stat-num">{sessions.reduce((a,s)=>a+(s.count||0),0)}</div><div className="stat-label">Pacientes totales</div></div>
+              <div className="stat-card"><div className="stat-num">${sessions.reduce((a,s)=>a+(s.total||0),0).toLocaleString('es-AR')}</div><div className="stat-label">Ingreso acumulado</div></div>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Fecha</th><th>Pacientes</th><th>Ingreso Total</th><th>Técnico (alq.)</th><th>Secretaria (alq.)</th><th></th></tr></thead>
+                <tbody>
+                  {sessions.map(s=>(
+                    <tr key={s.id}>
+                      <td style={{fontWeight:500}}>{s.date}</td>
+                      <td><span className="badge badge-blue">{s.count}</span></td>
+                      <td style={{fontWeight:600,color:'#276749'}}>${(s.total||0).toLocaleString('es-AR')}</td>
+                      <td>${(s.tecnico||0).toLocaleString('es-AR')}</td>
+                      <td>${(s.secretaria||0).toLocaleString('es-AR')}</td>
+                      <td><button className="btn btn-xs btn-danger" onClick={()=>deleteSession(s.id)}>✕</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Config Module ─────────────────────────────────────────────────────────────
+function ConfigModule({db,setDB}){
+  const[newCity,setNewCity]=useState('');
+  const[newBrand,setNewBrand]=useState('');
+  const[newType,setNewType]=useState('');
+  const[msg,setMsg]=useState('');
+
+  function add(key,val,setter){
+    const v=val.trim();
+    if(!v)return;
+    if(db[key].includes(v)){setMsg(`"${v}" ya existe en la lista`);return}
+    setDB({...db,[key]:sortArr([...db[key],v])});
+    setter('');setMsg(`"${v}" agregado correctamente`);
+  }
+
+  function remove(key,val){
+    if(!window.confirm(`¿Eliminar "${val}" de la lista?`))return;
+    setDB({...db,[key]:db[key].filter(x=>x!==val)});
+  }
+
+  function exportDB(){
+    const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=`mcp_bolivar_${todayStr().replace(/\//g,'-')}.json`;a.click();
+    URL.revokeObjectURL(url);
+    setMsg('Archivo de respaldo descargado');
+  }
+
+  function importDB(e){
+    const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{
+        const data=JSON.parse(ev.target.result);
+        
+        // DETECCIÓN AUTOMÁTICA DE FORMATO LOVABLE
+        if(data.options || data.financialRecords || (data.patients && data.patients[0]?.fullName)){
+          let newDB = { patients: [], cities: [], streets: [], deviceTypes: [], brands: [], modes: [], finances: { sessions: [], currentSession: null } };
+          
+          newDB.patients = data.patients.map(p => {
+            const names = (p.fullName || "").split(" ");
+            const apellido = names[0] || "";
+            const nombre = names.slice(1).join(" ") || "";
+            
+            const d = p.birthDate ? new Date(p.birthDate) : null;
+            const dob = d ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` : "";
+
+            let telOwner = "Paciente";
+            if(p.contacts[0]?.belongsTo === "child") telOwner = "Hijos";
+            if(p.contacts[0]?.belongsTo === "other") telOwner = "Otros";
+
+            let batY = "", batM = "", batPct = "", batType = "percent";
+            if(p.battery?.type === "timeRemaining") {
+               batType = "time";
+               if(p.battery.unit === "months") {
+                  batY = Math.floor(p.battery.value / 12);
+                  batM = p.battery.value % 12;
+               } else {
+                  batY = p.battery.value;
+                  batM = 0;
+               }
+            } else if (p.battery?.type === "percentage") {
+               batPct = p.battery.value;
+            }
+
+            const consultas = (p.consultations || []).map(c => {
+               const cd = c.date ? new Date(c.date) : null;
+               const cdate = cd ? `${String(cd.getDate()).padStart(2,'0')}/${String(cd.getMonth()+1).padStart(2,'0')}/${cd.getFullYear()}` : "";
+               let cbatY="", cbatM="", cbatPct="", cbatType="percent";
+               if(c.battery?.type === "timeRemaining") {
+                   cbatType = "time";
+                   if(c.battery.unit === "months") {
+                      cbatY = Math.floor(c.battery.value / 12);
+                      cbatM = c.battery.value % 12;
+                   } else {
+                      cbatY = c.battery.value;
+                      cbatM = 0;
+                   }
+                } else if (c.battery?.type === "percentage") {
+                   cbatPct = c.battery.value;
+                }
+
+               return {
+                  id: c.id || Date.now().toString()+Math.random(),
+                  date: cdate, brand: c.deviceBrand || "", batteryType: cbatType, batteryPct: cbatPct,
+                  batteryYears: cbatY, batteryMonths: cbatM, obs: c.observations || "", particular: !!c.isPrivate
+               }
+            });
+
+            return {
+               id: p.id || Date.now().toString()+Math.random(),
+               apellido, nombre, dob,
+               telPrefix: p.contacts[0]?.phoneNumber?.startsWith("2314") ? "2314" : "",
+               telNum: p.contacts[0]?.phoneNumber?.startsWith("2314") ? p.contacts[0].phoneNumber.slice(4) : (p.contacts[0]?.phoneNumber || ""),
+               telOwner, telContact: p.contacts[0]?.ownerName || "",
+               city: p.address?.city || "", street: p.address?.street || "", streetNum: p.address?.houseNumber || "",
+               deviceType: p.device?.type || "Marcapasos", brand: p.device?.brand || "", mode: p.device?.mode || "",
+               batteryType: batType, batteryPct: batPct, batteryYears: batY, batteryMonths: batM,
+               obs: p.observations || "", consultas
+            };
+          });
+
+          if(data.options) {
+             if(data.options.cities) newDB.cities = data.options.cities.map(x=>x.value);
+             if(data.options.streets) newDB.streets = data.options.streets.map(x=>x.value);
+             if(data.options.deviceTypes) newDB.deviceTypes = data.options.deviceTypes.map(x=>x.value);
+             if(data.options.deviceBrands) newDB.brands = data.options.deviceBrands.map(x=>x.value);
+          }
+
+          if(data.financialRecords) {
+             newDB.finances = { currentSession: null, sessions: data.financialRecords.map(f => {
+                   const fd = new Date(f.date);
+                   return {
+                      id: f.id, date: `${String(fd.getDate()).padStart(2,'0')}/${String(fd.getMonth()+1).padStart(2,'0')}/${fd.getFullYear()}`,
+                      consultaVal: f.consultationValue, alquilerVal: f.officeRent, count: f.patientCount,
+                      total: f.totalValue, tecnico: f.technicianPercentage, secretaria: f.secretaryPercentage
+                   }
+                })
+             }
+          }
+          
+          setDB(newDB);
+          setMsg(`Migración exitosa: ${newDB.patients.length} pacientes adaptados del formato anterior.`);
+        } else {
+          // IMPORTACIÓN NORMAL (NUEVO FORMATO)
+          if(!Array.isArray(data.patients)) throw new Error('Formato inválido: falta la lista de pacientes');
+          setDB(data);setMsg(`Importado exitosamente: ${data.patients.length} pacientes`);
+        }
+      }catch(err){setMsg('Error al importar: '+err.message)}
+    };
+    r.readAsText(f);
+    e.target.value='';
+  }
+
+// ─── Print List ────────────────────────────────────────────────────────────────
+function PrintListModal({patients,onClose}){
+  return(
+    <div className="modal-overlay">
+      <div className="modal modal-lg">
+        <div className="modal-header">
+          <span className="modal-title">Lista Imprimible de Pacientes</span>
+          <button className="btn btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
+            <span style={{fontSize:13,color:'#718096'}}>Total: {patients.length} pacientes · {todayStr()}</span>
+            <button className="btn btn-primary btn-sm" onClick={()=>window.print()}>🖨 Imprimir</button>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>#</th><th>Apellido y Nombre</th><th>Teléfono</th><th>Contacto</th><th>Último Control</th><th>Batería</th><th>Marca</th></tr>
+              </thead>
+              <tbody>
+                {patients.map((p,i)=>(
+                  <tr key={p.id}>
+                    <td style={{color:'#a0aec0'}}>{i+1}</td>
+                    <td style={{fontWeight:500}}>{p.apellido}, {p.nombre}</td>
+                    <td>{p.telPrefix} {p.telNum}</td>
+                    <td style={{fontSize:12,color:'#718096'}}>{p.telOwner!=='Paciente'?`${p.telContact} (${p.telOwner})`:''}</td>
+                    <td>{lastConsulta(p)}</td>
+                    <td><span className={`badge ${batteryColor(p)}`}>{batteryDisplay(p)}</span></td>
+                    <td>{p.brand||'—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose}>Cerrar</button>
+          <button className="btn btn-primary" onClick={()=>window.print()}>🖨 Imprimir</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main App ──────────────────────────────────────────────────────────────────
+function App(){
+  const[db,setDBRaw]=useState(initDB);
+  const[view,setView]=useState('patients');
+  const[search,setSearch]=useState('');
+  const[showNew,setShowNew]=useState(false);
+  const[selectedId,setSelectedId]=useState(null);
+  const[editPatient,setEditPatient]=useState(null);
+  const[showPrint,setShowPrint]=useState(false);
+
+  function setDB(d){setDBRaw(d);saveDB(d)}
+
+  const sorted=useMemo(()=>
+    [...db.patients].sort((a,b)=>
+      (a.apellido+a.nombre).localeCompare(b.apellido+b.nombre,'es')
+    ),[db.patients]);
+
+  const filtered=useMemo(()=>{
+    const q=search.trim().toLowerCase();
+    if(!q)return sorted;
+    return sorted.filter(p=>
+      (p.apellido+' '+p.nombre).toLowerCase().includes(q)
+    );
+  },[sorted,search]);
+
+  const finSession=db.finances?.currentSession;
+
+  return(
+    <div className="app">
+      {showNew&&<PatientForm db={db} setDB={setDB} onClose={()=>setShowNew(false)}/>}
+      {editPatient&&<PatientForm db={db} setDB={setDB} patient={editPatient} onClose={()=>setEditPatient(null)}/>}
+      {selectedId&&!editPatient&&(
+        <PatientDetail patientId={selectedId} db={db} setDB={setDB}
+          onClose={()=>setSelectedId(null)}
+          onEdit={p=>{setSelectedId(null);setEditPatient(p)}}/>
+      )}
+      {showPrint&&<PrintListModal patients={sorted} onClose={()=>setShowPrint(false)}/>}
+
+      <nav className="navbar">
+        <div className="nav-logo"><span>💓</span> MCP Bolívar</div>
+        {['patients','finances','config'].map(v=>(
+          <button key={v} className={`nav-btn ${view===v?'active':''}`} onClick={()=>setView(v)}>
+            {v==='patients'&&'👥 Pacientes'}
+            {v==='finances'&&(
+              <>{finSession&&<span style={{width:7,height:7,borderRadius:'50%',background:'#4ade80',display:'inline-block',marginRight:2}}/>}💼 Finanzas</>
+            )}
+            {v==='config'&&'⚙ Config'}
+          </button>
+        ))}
+        <button className="nav-new" onClick={()=>setShowNew(true)}>
+          <span style={{fontSize:16}}>👤</span>+ Nuevo
+        </button>
+      </nav>
+
+      <div className="main">
+        {view==='patients'&&(
+          <>
+            <div className="card">
+              <div style={{display:'flex',gap:'.75rem',alignItems:'center',flexWrap:'wrap'}}>
+                <div className="search-wrap" style={{flex:1,minWidth:220}}>
+                  <span className="search-icon">🔍</span>
+                  <input value={search} onChange={e=>setSearch(e.target.value)}
+                    placeholder="Buscar por apellido o nombre..." autoFocus/>
+                </div>
+                <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
+                  <span className="badge badge-blue" style={{fontSize:13,padding:'5px 12px',fontWeight:700}}>
+                    {db.patients.length} paciente{db.patients.length!==1?'s':''}
+                  </span>
+                  <button className="btn btn-sm" onClick={()=>setShowPrint(true)}>🖨 Imprimir Lista</button>
+                </div>
+              </div>
+            </div>
+
+            {filtered.length===0?(
+              <div className="card empty-state">
+                <div className="empty-icon">👤</div>
+                <p style={{marginBottom:'1rem',fontSize:15}}>
+                  {search?`Sin resultados para "${search}"`:'No hay pacientes registrados aún'}
+                </p>
+                {!search&&<button className="btn btn-primary" onClick={()=>setShowNew(true)}>+ Agregar Primer Paciente</button>}
+              </div>
+            ):(
+              <div className="card" style={{padding:0,overflow:'hidden'}}>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Apellido y Nombre</th><th>Edad</th><th>Ciudad</th>
+                        <th>Dispositivo</th><th>Marca</th><th>Batería</th>
+                        <th>Último Control</th><th>Consultas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map(p=>(
+                        <tr key={p.id} className="patient-row" onClick={()=>setSelectedId(p.id)}>
+                          <td>
+                            <div style={{display:'flex',alignItems:'center',gap:8}}>
+                              <div style={{width:30,height:30,borderRadius:'50%',background:'#ebf4ff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#1a56db',flexShrink:0}}>
+                                {p.apellido[0]}{p.nombre[0]}
+                              </div>
+                              <span style={{fontWeight:600}}>{p.apellido}, {p.nombre}</span>
+                            </div>
+                          </td>
+                          <td>{calcAge(p.dob)??'—'}</td>
+                          <td style={{color:'#718096'}}>{p.city||'—'}</td>
+                          <td>{p.deviceType||'—'}</td>
+                          <td>{p.brand||'—'}</td>
+                          <td><span className={`badge ${batteryColor(p)}`}>{batteryDisplay(p)}</span></td>
+                          <td style={{color:'#718096',fontSize:12}}>{lastConsulta(p)}</td>
+                          <td><span className="badge badge-gray">{(p.consultas||[]).length}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {view==='finances'&&(
+          <>
+            <h2 style={{fontSize:18,fontWeight:700,marginBottom:'1.25rem'}}>💼 Módulo de Finanzas</h2>
+            <FinanceModule db={db} setDB={setDB}/>
+          </>
+        )}
+
+        {view==='config'&&(
+          <>
+            <h2 style={{fontSize:18,fontWeight:700,marginBottom:'1.25rem'}}>⚙ Configuración del Sistema</h2>
+            <ConfigModule db={db} setDB={setDB}/>
+          </>
+        )}
+      </div>
+
+      {/* --- AGREGAR ESTO --- */}
+      <footer style={{textAlign: 'center', padding: '1rem', fontSize: '12px', color: '#a0aec0', borderTop: '0.5px solid #e2e8f0', marginTop: 'auto'}}>
+        Creado por Mariano Lumbreras · V {APP_VERSION}
+      </footer>
+      {/* -------------------- */}
+      
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
