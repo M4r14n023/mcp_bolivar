@@ -9,6 +9,12 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#f0f4f8;color:#1a202c;min-height:100vh}
@@ -102,6 +108,8 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 .file-drop-icon{font-size:32px;margin-bottom:.5rem;opacity:.7}
 .progress-bar{height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-top:4px}
 .progress-fill{height:100%;border-radius:3px;transition:width .3s}
+.spinner {border: 3px solid #f3f3f3; border-top: 3px solid #1a56db; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto;}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 @media(max-width:640px){.grid2,.grid3,.grid4{grid-template-columns:1fr}.nav-logo{font-size:16px}.modal-lg{max-width:100%}}
 @media print{.navbar,.no-print{display:none!important}.main{padding:0;max-width:100%}.card{border:none;border-radius:0;box-shadow:none}}
 </style>
@@ -112,14 +120,13 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
 const DB_KEY = 'mcpbolivar_v3';
+const APP_VERSION = "2.0.0 (Informes Inteligentes IA)"; 
 
-// -------------------------------------------------------------
-// AQUÍ ESTÁ TU VERSIÓN. CAMBIALA ANTES DE CADA COMMIT A GITHUB
-// -------------------------------------------------------------
-const APP_VERSION = "1.3.0"; 
-
+// ─── FUNCIONES DE BASE DE DATOS Y ESTADO ─────────────────────────────────────────
 function loadDB(){try{const d=localStorage.getItem(DB_KEY);return d?JSON.parse(d):null}catch{return null}}
 function saveDB(db){try{localStorage.setItem(DB_KEY,JSON.stringify(db))}catch(e){alert('Error guardando datos: espacio insuficiente')}}
+function getGeminiKey() { return localStorage.getItem('mcp_gemini_key') || ''; }
+function setGeminiKey(key) { localStorage.setItem('mcp_gemini_key', key); }
 
 const DEFAULT={
   patients:[],
@@ -147,6 +154,7 @@ function initDB(){
 
 const sortArr=arr=>[...new Set(arr)].filter(Boolean).sort((a,b)=>a.localeCompare(b,'es'));
 
+// ─── FUNCIONES AUXILIARES Y DE CÁLCULO ─────────────────────────────────────────
 function calcAge(dob){
   if(!dob||dob.length<10)return null;
   const[d,m,y]=dob.split('/');
@@ -201,7 +209,7 @@ function lastConsulta(p){
   return cs.length>0?cs[cs.length-1].date:'Sin control';
 }
 
-// ─── Autocomplete Input ───────────────────────────────────────────────────────
+// ─── AUTOCOMPLETE INPUT ───────────────────────────────────────────────────────
 function ACInput({value,onChange,list,placeholder}){
   const[show,setShow]=useState(false);
   const[opts,setOpts]=useState([]);
@@ -241,14 +249,14 @@ function ACInput({value,onChange,list,placeholder}){
   );
 }
 
-// ─── Battery Fields ────────────────────────────────────────────────────────────
-function BatteryFields({form,set}){
+// ─── BATTERY FIELDS ────────────────────────────────────────────────────────────
+function BatteryFields({form,set, disabled=false}){
   return(
-    <>
+    <div style={{opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? 'none' : 'auto'}}>
       <div className="radio-group" style={{marginBottom:'.75rem'}}>
         {['percent','time'].map(t=>(
           <label key={t} className="radio-label">
-            <input type="radio" checked={form.batteryType===t} onChange={()=>set('batteryType',t)}/>
+            <input type="radio" checked={form.batteryType===t} onChange={()=>set('batteryType',t)} disabled={disabled}/>
             {t==='percent'?'% Restante':'Tiempo restante'}
           </label>
         ))}
@@ -257,7 +265,7 @@ function BatteryFields({form,set}){
         <div style={{maxWidth:180}}>
           <label>Porcentaje (%)</label>
           <input type="number" min="0" max="100" value={form.batteryPct}
-            onChange={e=>set('batteryPct',e.target.value)} placeholder="85"/>
+            onChange={e=>set('batteryPct',e.target.value)} placeholder="85" disabled={disabled}/>
           {form.batteryPct!==''&&(
             <div className="progress-bar" style={{marginTop:6}}>
               <div className="progress-fill" style={{
@@ -270,18 +278,18 @@ function BatteryFields({form,set}){
       ):(
         <div className="grid2" style={{maxWidth:280}}>
           <div><label>Años</label>
-            <input type="number" min="0" value={form.batteryYears} onChange={e=>set('batteryYears',e.target.value)} placeholder="0"/>
+            <input type="number" min="0" value={form.batteryYears} onChange={e=>set('batteryYears',e.target.value)} placeholder="0" disabled={disabled}/>
           </div>
           <div><label>Meses</label>
-            <input type="number" min="0" max="11" value={form.batteryMonths} onChange={e=>set('batteryMonths',e.target.value)} placeholder="6"/>
+            <input type="number" min="0" max="11" value={form.batteryMonths} onChange={e=>set('batteryMonths',e.target.value)} placeholder="6" disabled={disabled}/>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
-// ─── Patient Form ──────────────────────────────────────────────────────────────
+// ─── PATIENT FORM ──────────────────────────────────────────────────────────────
 function PatientForm({db,setDB,patient,onClose}){
   const isEdit=!!patient;
   const[form,setForm]=useState(()=>patient?{...patient}:{
@@ -435,7 +443,7 @@ function PatientForm({db,setDB,patient,onClose}){
   );
 }
 
-// ─── Consulta Form ─────────────────────────────────────────────────────────────
+// ─── CONSULTA FORM ─────────────────────────────────────────────────────────────
 function ConsultaForm({patient,db,setDB,onClose}){
   const[form,setForm]=useState({
     id:Date.now().toString(),
@@ -512,234 +520,326 @@ function ConsultaForm({patient,db,setDB,onClose}){
   );
 }
 
-// ─── PDF Generator ─────────────────────────────────────────────────────────────
-function PDFGenerator({patient,onClose}){
-  const[pdfFile,setPdfFile]=useState(null);
-  const[status,setStatus]=useState('');
-  const[dragging,setDragging]=useState(false);
-  const fileRef=useRef(null);
+// ─── AI REPORT GENERATOR (NUEVO REEMPLAZO DE PDFGenerator) ─────────────────────
+function AIReportGenerator({patient, onClose}) {
+  const [step, setStep] = useState(1); // 1: Upload, 2: Form, 3: Success
+  const [status, setStatus] = useState('');
+  const [dragging, setDragging] = useState(false);
+  const [pdfFile, setPdfFile] = useState(null);
+  
+  // Formulario del Informe Clínico
+  const [form, setForm] = useState({
+    impA: '', impV: '', impShock: '',
+    batteryType: patient.batteryType || 'percent',
+    batteryPct: patient.batteryPct || '',
+    batteryYears: patient.batteryYears || '',
+    batteryMonths: patient.batteryMonths || '',
+    isERI: false, isEOL: false,
+    estimV: '',
+    arrPMT: false, arrModo: false, arrRuido: false, arrOtros: '',
+    conclusion: '',
+    nextControl: ''
+  });
 
-  function handleFile(f){
-    if(f&&f.type==='application/pdf'){setPdfFile(f);setStatus('')}
-    else{setStatus('Solo se aceptan archivos PDF')}
-  }
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const apiKey = getGeminiKey();
 
-  async function generateCoverPDF(){
-    try{
-      setStatus('⏳ Generando portada...');
-      const{jsPDF}=window.jspdf;
-      const doc=new jsPDF({unit:'mm',format:'a4'});
+  // Lógica inteligente de conclusión clínica
+  useEffect(() => {
+    if (step !== 2) return; // Solo calcular si estamos en el paso del formulario
+    
+    let conc = "Parámetros de funcionamiento dentro de límites normales.";
+    let ctrl = "6 a 8 meses";
 
-      doc.setFillColor(26,86,219);
-      doc.rect(0,0,210,45,'F');
-      doc.setFillColor(16,60,180);
-      doc.rect(0,38,210,7,'F');
-      doc.setTextColor(255,255,255);
-      doc.setFontSize(24);doc.setFont('helvetica','bold');
-      doc.text('MCP Bolívar',14,22);
-      doc.setFontSize(11);doc.setFont('helvetica','normal');
-      doc.text('Sistema de Gestión de Cardiología',14,32);
-
-      doc.setTextColor(26,86,219);
-      doc.setFontSize(20);doc.setFont('helvetica','bold');
-      doc.text(`${patient.apellido}, ${patient.nombre}`,14,62);
-
-      const age=calcAge(patient.dob);
-      if(age!==null){
-        doc.setFillColor(235,244,255);
-        doc.roundedRect(14,67,40,10,3,3,'F');
-        doc.setTextColor(26,86,219);
-        doc.setFontSize(10);doc.setFont('helvetica','bold');
-        doc.text(`${age} años`,17,74);
-      }
-
-      doc.setDrawColor(226,232,240);
-      doc.setLineWidth(0.5);
-      doc.line(14,82,196,82);
-
-      const rows=[
-        ['Fecha de Nacimiento',patient.dob||'—'],
-        ['Ciudad',patient.city||'—'],
-        ['Dirección',`${patient.street||''} ${patient.streetNum||''}`.trim()||'—'],
-        ['Teléfono',`${patient.telPrefix||''} ${patient.telNum||''}`.trim()||'—'],
-      ];
-      if(patient.telOwner!=='Paciente'&&patient.telContact){
-        rows.push(['Contacto',`${patient.telContact} (${patient.telOwner})`]);
-      }
-      rows.push(
-        ['Dispositivo',`${patient.deviceType||'—'} — ${patient.brand||'—'}`],
-        ['Modo',patient.mode||'—'],
-        ['Estado Batería',batteryDisplay(patient)],
-        ['Último Control',lastConsulta(patient)]
-      );
-
-      let y=92;
-      rows.forEach(([k,v],i)=>{
-        if(i%2===0){doc.setFillColor(247,250,252);doc.rect(14,y-5,182,8,'F')}
-        doc.setFont('helvetica','bold');doc.setFontSize(10);
-        doc.setTextColor(74,85,104);doc.text(k,16,y);
-        doc.setFont('helvetica','normal');doc.setTextColor(26,32,44);
-        doc.text(String(v),90,y);
-        y+=10;
-      });
-
-      if(patient.obs){
-        y+=4;
-        doc.setFillColor(240,247,255);
-        const obsLines=doc.splitTextToSize(patient.obs,170);
-        doc.rect(14,y-5,182,obsLines.length*6+8,'F');
-        doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(74,85,104);
-        doc.text('Observaciones',16,y);y+=7;
-        doc.setFont('helvetica','normal');doc.setTextColor(26,32,44);
-        doc.text(obsLines,16,y);
-        y+=obsLines.length*6+4;
-      }
-
-      const cs=patient.consultas||[];
-      if(cs.length>0){
-        y+=8;
-        if(y>240){doc.addPage();y=20}
-        doc.setFillColor(26,86,219);
-        doc.rect(14,y-5,182,10,'F');
-        doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(10);
-        doc.text('Historial de Consultas',16,y+1);
-        y+=10;
-
-        const widths=[32,32,28,70,20];
-        const headers=['Fecha','Marca','Batería','Observaciones','Tipo'];
-        headers.forEach((h,i)=>{
-          doc.setFillColor(247,250,252);
-          let xOff=14+widths.slice(0,i).reduce((a,b)=>a+b,0);
-          doc.rect(xOff,y-4,widths[i],8,'F');
-          doc.setTextColor(74,85,104);doc.setFont('helvetica','bold');doc.setFontSize(9);
-          doc.text(h,xOff+2,y+1);
-        });
-        y+=8;
-
-        [...cs].reverse().forEach((c,idx)=>{
-          if(y>275){doc.addPage();y=20}
-          const row=[
-            c.date||'—',c.brand||'—',
-            c.batteryType==='time'?`${c.batteryYears||0}a ${c.batteryMonths||0}m`:`${c.batteryPct||'—'}%`,
-            (c.obs||'').substring(0,45)+(c.obs?.length>45?'...':''),
-            c.particular?'Part.':'Normal'
-          ];
-          if(idx%2===0){doc.setFillColor(250,252,255);doc.rect(14,y-4,182,8,'F')}
-          row.forEach((v,i)=>{
-            let xOff=14+widths.slice(0,i).reduce((a,b)=>a+b,0);
-            doc.setFont('helvetica','normal');doc.setFontSize(9);
-            doc.setTextColor(26,32,44);
-            doc.text(String(v),xOff+2,y+1,{maxWidth:widths[i]-4});
-          });
-          y+=9;
-        });
-      }
-
-      doc.setFontSize(8);doc.setTextColor(160,174,192);
-      doc.text(`Generado el ${todayStr()} — MCP Bolívar`,14,290);
-      doc.text(`Pág. 1`,190,290,{align:'right'});
-
-      return doc.output('arraybuffer');
-    }catch(e){
-      setStatus('Error generando portada: '+e.message);
-      return null;
+    if (form.isEOL) { 
+      conc = "Dispositivo en Indicación de Recambio Inmediato."; 
+      ctrl = "Programar recambio"; 
     }
-  }
+    else if (form.isERI) { 
+      conc = "Dispositivo con Indicación de Recambio alcanzada."; 
+      ctrl = "Programar recambio"; 
+    }
+    else {
+      const arrs = [];
+      if(form.arrPMT) arrs.push("PMT"); 
+      if(form.arrModo) arrs.push("Cambios de Modo"); 
+      if(form.arrRuido) arrs.push("Ruido Auricular"); 
+      if(form.arrOtros) arrs.push(form.arrOtros);
+      
+      if (arrs.length > 0) conc += ` Se detectaron episodios de: ${arrs.join(', ')}.`;
+      
+      // Calcular si la batería es "baja"
+      let isLow = false;
+      if (form.batteryType === 'percent' && parseFloat(form.batteryPct) < 30) isLow = true;
+      if (form.batteryType === 'time' && (parseInt(form.batteryYears)||0) < 1 && (parseInt(form.batteryMonths)||0) < 12) isLow = true;
+      if (isLow) ctrl = "3 meses";
+    }
+    
+    set('conclusion', conc);
+    set('nextControl', ctrl);
+  }, [form.isERI, form.isEOL, form.arrPMT, form.arrModo, form.arrRuido, form.arrOtros, form.batteryType, form.batteryPct, form.batteryYears, form.batteryMonths, step]);
 
-  async function generateAndMerge(){
-    const coverBuf=await generateCoverPDF();
-    if(!coverBuf)return;
-
-    if(!pdfFile){
-      const blob=new Blob([coverBuf],{type:'application/pdf'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;a.download=`Informe_${patient.apellido}_${patient.nombre}.pdf`;a.click();
-      URL.revokeObjectURL(url);
-      setStatus('✓ Portada descargada');
+  // Manejador de subida y lectura de PDF
+  async function handleFileUpload(f) {
+    if(!f || f.type !== 'application/pdf') { setStatus('Solo se aceptan archivos PDF.'); return; }
+    setPdfFile(f);
+    
+    if(!apiKey) {
+      if(window.confirm('No tienes configurada la API Key de Gemini. ¿Quieres llenar el formulario manualmente sin extracción automática?')) {
+        setStep(2);
+      }
       return;
     }
 
-    try{
-      setStatus('⏳ Fusionando PDFs...');
-      const{PDFDocument}=window.PDFLib;
-      const extBuf=await pdfFile.arrayBuffer();
-      const coverDoc=await PDFDocument.load(coverBuf);
-      const extDoc=await PDFDocument.load(extBuf);
-      const mergedDoc=await PDFDocument.create();
-      const coverPages=await mergedDoc.copyPages(coverDoc,[...Array(coverDoc.getPageCount()).keys()]);
-      coverPages.forEach(p=>mergedDoc.addPage(p));
-      const extPages=await mergedDoc.copyPages(extDoc,[...Array(extDoc.getPageCount()).keys()]);
-      extPages.forEach(p=>mergedDoc.addPage(p));
-      const mergedBytes=await mergedDoc.save();
-      const blob=new Blob([mergedBytes],{type:'application/pdf'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;a.download=`Informe_${patient.apellido}_${patient.nombre}.pdf`;a.click();
-      URL.revokeObjectURL(url);
-      setStatus('✓ PDF combinado descargado exitosamente');
-    }catch(e){
-      setStatus('Error fusionando: '+e.message);
+    setStatus('leyendo');
+    try {
+      // 1. Extraer texto usando pdf.js
+      const arrayBuffer = await f.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          fullText += textContent.items.map(item => item.str).join(' ') + ' \n';
+      }
+
+      // 2. Llamar a Gemini API
+      setStatus('ia');
+      const prompt = `Analiza este texto extraído de un informe de dispositivo cardíaco (marcapasos/CDI) y devuelve ÚNICAMENTE un objeto JSON válido (sin markdown ni bloques de código). 
+      El JSON debe tener esta estructura exacta:
+      {
+        "impA": "valor numérico en Ohms o vacío",
+        "impV": "valor numérico en Ohms o vacío",
+        "impShock": "valor numérico en Ohms o vacío",
+        "estimV": "valor de porcentaje de estimulación ventricular o vacío",
+        "eri": true o false,
+        "eol": true o false
+      }
+      Texto a analizar: ${fullText.substring(0, 10000)}`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+
+      const data = await response.json();
+      if(!data.candidates) throw new Error("Error en la respuesta de la IA (posiblemente la API Key sea incorrecta).");
+      
+      // Limpiar el JSON por si Gemini le puso ```json
+      let jsonText = data.candidates[0].content.parts[0].text;
+      jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+      const result = JSON.parse(jsonText);
+
+      // Cargar datos al formulario
+      setForm(prev => ({
+        ...prev,
+        impA: result.impA || '', 
+        impV: result.impV || '', 
+        impShock: result.impShock || '',
+        estimV: result.estimV || '',
+        isERI: result.eri || false, 
+        isEOL: result.eol || false
+      }));
+
+      setStep(2); // Pasar a la revisión
+    } catch(err) {
+      console.error(err);
+      setStatus('Error procesando el PDF o contactando a Gemini. Procediendo a llenado manual.');
+      setTimeout(() => setStep(2), 2000);
     }
   }
 
-  return(
+  // Generador del PDF final (Portada + Original)
+  async function generateFinalPDF() {
+    try {
+      setStatus('generando');
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+      // Membrete Superior
+      doc.setFillColor(26, 86, 219); doc.rect(0, 0, 210, 30, 'F');
+      doc.setTextColor(255, 255, 255); doc.setFontSize(20); doc.setFont('helvetica', 'bold');
+      doc.text('Informe de Control de Dispositivo', 14, 18);
+      doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+      doc.text(`Sede: Bolívar — Fecha: ${todayStr()}`, 14, 25);
+
+      // Datos del Paciente
+      doc.setTextColor(26, 32, 44); doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+      doc.text(`Paciente: ${patient.apellido}, ${patient.nombre}`, 14, 45);
+      doc.setFontSize(11); doc.setFont('helvetica', 'normal');
+      doc.text(`Dispositivo: ${patient.deviceType} ${patient.brand} (${patient.mode || 'N/A'})`, 14, 52);
+      
+      const age = calcAge(patient.dob);
+      if(age) doc.text(`Edad: ${age} años`, 14, 58);
+
+      // Línea divisoria
+      doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.5); doc.line(14, 65, 196, 65);
+
+      // Parámetros Eléctricos
+      let y = 75;
+      doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text('Parámetros Eléctricos y Estado:', 14, y); y+=8;
+      
+      doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+      doc.text(`Impedancia Auricular:`, 14, y); doc.setFont('helvetica', 'bold'); doc.text(`${form.impA ? form.impA + ' Ω' : '—'}`, 60, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Impedancia Ventricular:`, 105, y); doc.setFont('helvetica', 'bold'); doc.text(`${form.impV ? form.impV + ' Ω' : '—'}`, 155, y); y+=8;
+      
+      if(patient.deviceType === 'Desfibrilador' || patient.deviceType === 'Resincronizador') {
+        doc.setFont('helvetica', 'normal'); doc.text(`Impedancia Choque:`, 14, y); doc.setFont('helvetica', 'bold'); doc.text(`${form.impShock ? form.impShock + ' Ω' : '—'}`, 60, y); y+=8;
+      }
+      
+      doc.setFont('helvetica', 'normal'); doc.text(`Estimulación Ventricular:`, 14, y); doc.setFont('helvetica', 'bold'); doc.text(`${form.estimV ? form.estimV + '%' : '—'}`, 60, y); y+=10;
+      
+      // Batería
+      let batTxt = batteryDisplay({...patient, batteryType: form.batteryType, batteryPct: form.batteryPct, batteryYears: form.batteryYears, batteryMonths: form.batteryMonths});
+      if(form.isEOL) batTxt = "EOL (Fin de Vida / Recambio Inmediato)"; else if(form.isERI) batTxt = "ERI (Indicación de Recambio)";
+      
+      doc.setFillColor(247, 250, 252); doc.rect(14, y-5, 182, 10, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 86, 219);
+      doc.text(`Estado de Batería: ${batTxt}`, 16, y+1); y+=15;
+
+      // Conclusión
+      doc.setTextColor(26, 32, 44);
+      doc.setFillColor(240, 247, 255); doc.rect(14, y-5, 182, 35, 'F');
+      doc.setFont('helvetica', 'bold'); doc.text('Conclusión Clínica:', 16, y); y+=7;
+      doc.setFont('helvetica', 'normal');
+      const splitConc = doc.splitTextToSize(form.conclusion, 175);
+      doc.text(splitConc, 16, y); y+=25;
+
+      // Próximo Control
+      doc.setFont('helvetica', 'bold'); doc.text(`Próximo Control Sugerido: ${form.nextControl}`, 14, y); y+=15;
+
+      // Cursiva legal
+      doc.setFontSize(9); doc.setFont('helvetica', 'italic'); doc.setTextColor(113, 128, 150);
+      doc.text('Los valores de impedancia y sensibilidad se consideran normales según las', 14, y);
+      doc.text('especificaciones técnicas del fabricante del dispositivo.', 14, y+5);
+
+      const coverBuf = doc.output('arraybuffer');
+
+      // Fusión con el PDF original usando pdf-lib
+      if (pdfFile) {
+        const { PDFDocument } = window.PDFLib;
+        const extBuf = await pdfFile.arrayBuffer();
+        const mergedDoc = await PDFDocument.create();
+        
+        // Agregar la portada que acabamos de crear
+        const coverDoc = await PDFDocument.load(coverBuf);
+        const coverPages = await mergedDoc.copyPages(coverDoc, [0]);
+        mergedDoc.addPage(coverPages[0]);
+
+        // Agregar todas las páginas del PDF del programador
+        const extDoc = await PDFDocument.load(extBuf);
+        const extPages = await mergedDoc.copyPages(extDoc, [...Array(extDoc.getPageCount()).keys()]);
+        extPages.forEach(p => mergedDoc.addPage(p));
+
+        const mergedBytes = await mergedDoc.save();
+        const blob = new Blob([mergedBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `Informe_${patient.apellido.replace(' ','_')}_${todayStr().replace(/\//g,'-')}.pdf`; a.click();
+      } else {
+        // Solo descargar la portada si no subió PDF
+        const blob = new Blob([coverBuf], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `Informe_${patient.apellido.replace(' ','_')}_${todayStr().replace(/\//g,'-')}.pdf`; a.click();
+      }
+
+      setStatus('¡Informe generado con éxito!');
+      setTimeout(onClose, 2000);
+    } catch(err) {
+      console.error(err);
+      setStatus('Error al generar el PDF final. Revisa la consola.');
+    }
+  }
+
+  return (
     <div className="modal-overlay" style={{zIndex:300}}>
-      <div className="modal modal-sm">
+      <div className="modal modal-lg">
         <div className="modal-header">
-          <span className="modal-title">📄 Generar Informe PDF</span>
+          <span className="modal-title">📄 Generador Inteligente de Informes</span>
           <button className="btn btn-sm" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
-          <div className="alert alert-info">
-            El sistema genera una portada con los datos del paciente. Opcionalmente podés adjuntar un PDF externo (estudio, ECG, etc.) que se fusionará al final.
+          <div style={{background:'#ebf8ff', padding:'10px 15px', borderRadius:8, marginBottom:15, fontSize:13}}>
+            <strong>Paciente:</strong> {patient.apellido}, {patient.nombre} | <strong>Dispositivo:</strong> {patient.deviceType} {patient.brand}
           </div>
-          <p style={{fontWeight:600,fontSize:14,marginBottom:'.5rem'}}>
-            {patient.apellido}, {patient.nombre}
-          </p>
-          <p style={{fontSize:12,color:'#718096',marginBottom:'1.25rem'}}>
-            {patient.deviceType} — {patient.brand} — Batería: {batteryDisplay(patient)}
-          </p>
-          <div className="section-title">PDF Externo (opcional)</div>
-          <div
-            className={`file-drop${dragging?' over':''}`}
-            onClick={()=>fileRef.current.click()}
-            onDragOver={e=>{e.preventDefault();setDragging(true)}}
-            onDragLeave={()=>setDragging(false)}
-            onDrop={e=>{e.preventDefault();setDragging(false);handleFile(e.dataTransfer.files[0])}}
-          >
-            <div className="file-drop-icon">📎</div>
-            {pdfFile
-              ?<p style={{color:'#1a56db',fontWeight:600}}>{pdfFile.name}</p>
-              :<><p>Arrastrá un PDF aquí o hacé clic para seleccionar</p>
-                <p style={{fontSize:11,marginTop:4,color:'#a0aec0'}}>Estudios, ECG, resultados...</p></>
-            }
-          </div>
-          <input ref={fileRef} type="file" accept=".pdf" style={{display:'none'}}
-            onChange={e=>handleFile(e.target.files[0])}/>
-          {pdfFile&&(
-            <button className="btn btn-xs" style={{marginTop:6}} onClick={()=>setPdfFile(null)}>
-              ✕ Quitar archivo
-            </button>
+
+          {step === 1 && (
+            <div style={{textAlign:'center', padding:'2rem'}}>
+              <div className={`file-drop${dragging?' over':''}`}
+                onClick={()=>document.getElementById('pdf-upload').click()}
+                onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)}
+                onDrop={e=>{e.preventDefault();setDragging(false);handleFileUpload(e.dataTransfer.files[0])}}
+              >
+                <div className="file-drop-icon">📑</div>
+                {status === 'leyendo' ? <><div className="spinner"></div><p style={{marginTop:10}}>Extrayendo texto del PDF...</p></> :
+                 status === 'ia' ? <><div className="spinner"></div><p style={{marginTop:10}}>Gemini está analizando los parámetros...</p></> :
+                 <><p style={{fontWeight:600}}>Carga Automática con IA</p><p style={{fontSize:12, color:'#718096', marginTop:4}}>Arrastrá el PDF del programador aquí (ej. Abbott, Medtronic)</p></>}
+              </div>
+              <input id="pdf-upload" type="file" accept=".pdf" style={{display:'none'}} onChange={e=>handleFileUpload(e.target.files[0])}/>
+              
+              <div className="divider">o</div>
+              <button className="btn" onClick={()=>setStep(2)}>📝 Carga Manual (Sin PDF)</button>
+              {status && status.startsWith('Error') && <div className="alert alert-error" style={{marginTop:15}}>⚠ {status}</div>}
+            </div>
           )}
-          {status&&(
-            <div className={`alert ${status.startsWith('✓')?'alert-success':status.startsWith('⏳')?'alert-info':'alert-error'}`} style={{marginTop:'1rem'}}>
-              {status}
+
+          {step === 2 && (
+            <div>
+              <div className="section-title">1. Revisión de Parámetros Extraídos</div>
+              <div className="grid3">
+                <div className="form-group"><label>Impedancia A (Ω)</label><input value={form.impA} onChange={e=>set('impA',e.target.value)} placeholder="Ej: 450"/></div>
+                <div className="form-group"><label>Impedancia V (Ω)</label><input value={form.impV} onChange={e=>set('impV',e.target.value)} placeholder="Ej: 600"/></div>
+                <div className="form-group"><label>Estimulación V (%)</label><input value={form.estimV} onChange={e=>set('estimV',e.target.value)} placeholder="Ej: 99"/></div>
+              </div>
+              {(patient.deviceType==='Desfibrilador'||patient.deviceType==='Resincronizador') && (
+                <div className="form-group" style={{maxWidth:200}}><label>Impedancia Choque (Ω)</label><input value={form.impShock} onChange={e=>set('impShock',e.target.value)}/></div>
+              )}
+
+              <div className="section-title">2. Batería y Estado del Dispositivo</div>
+              <div style={{display:'flex', gap:20, alignItems:'center', background:'#f7fafc', padding:15, borderRadius:8, marginBottom:15, border:'0.5px solid #e2e8f0'}}>
+                <div style={{borderRight:'1px solid #cbd5e0', paddingRight:20}}>
+                  <label className="radio-label"><input type="checkbox" checked={form.isERI} onChange={e=>set('isERI',e.target.checked)}/> Ind. Recambio (ERI)</label>
+                  <label className="radio-label" style={{marginTop:5}}><input type="checkbox" checked={form.isEOL} onChange={e=>set('isEOL',e.target.checked)}/> Fin de Vida (EOL)</label>
+                </div>
+                <div style={{flex:1}}><BatteryFields form={form} set={set} disabled={form.isERI || form.isEOL}/></div>
+              </div>
+
+              <div className="section-title">3. Arritmias Detectadas</div>
+              <div style={{display:'flex', gap:15, flexWrap:'wrap', marginBottom:15}}>
+                <label className="radio-label"><input type="checkbox" checked={form.arrPMT} onChange={e=>set('arrPMT',e.target.checked)}/> PMT</label>
+                <label className="radio-label"><input type="checkbox" checked={form.arrModo} onChange={e=>set('arrModo',e.target.checked)}/> Cambios de Modo</label>
+                <label className="radio-label"><input type="checkbox" checked={form.arrRuido} onChange={e=>set('arrRuido',e.target.checked)}/> Ruido Auricular</label>
+                <input style={{width:'auto', flex:1}} value={form.arrOtros} onChange={e=>set('arrOtros',e.target.value)} placeholder="Otras (ej. TA/FA)..."/>
+              </div>
+
+              <div className="section-title">4. Conclusión Automática y Próximo Control</div>
+              <div className="form-group">
+                <textarea rows={2} value={form.conclusion} onChange={e=>set('conclusion',e.target.value)} style={{fontWeight:500}}/>
+              </div>
+              <div className="form-group" style={{maxWidth:300}}>
+                <label>Próximo Control en</label>
+                <input value={form.nextControl} onChange={e=>set('nextControl',e.target.value)}/>
+              </div>
+
+              {status === 'generando' && <div className="alert alert-info">⏳ Generando informe y fusionando PDF original...</div>}
+              {status === '¡Informe generado con éxito!' && <div className="alert alert-success">✓ {status}</div>}
             </div>
           )}
         </div>
         <div className="modal-footer">
-          <button className="btn" onClick={onClose}>Cerrar</button>
-          <button className="btn btn-primary" onClick={generateAndMerge}>
-            {pdfFile?'📥 Generar y Fusionar PDF':'📥 Generar Portada PDF'}
-          </button>
+          {step === 2 && <button className="btn" onClick={()=>setStep(1)}>Volver</button>}
+          <button className="btn" onClick={onClose}>Cancelar</button>
+          {step === 2 && <button className="btn btn-primary" onClick={generateFinalPDF}>🖨 Guardar e Imprimir PDF</button>}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Patient Detail ────────────────────────────────────────────────────────────
+// ─── PATIENT DETAIL ────────────────────────────────────────────────────────────
 function PatientDetail({patientId,db,setDB,onClose,onEdit}){
   const[tab,setTab]=useState('info');
   const[showConsulta,setShowConsulta]=useState(false);
@@ -764,7 +864,7 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit}){
   return(
     <>
       {showConsulta&&<ConsultaForm patient={patient} db={db} setDB={setDB} onClose={()=>setShowConsulta(false)}/>}
-      {showPDF&&<PDFGenerator patient={patient} onClose={()=>setShowPDF(false)}/>}
+      {showPDF&&<AIReportGenerator patient={patient} onClose={()=>setShowPDF(false)}/>}
       <div className="modal-overlay">
         <div className="modal modal-lg">
           <div className="modal-header">
@@ -869,7 +969,7 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit}){
           <div className="modal-footer">
             <button className="btn btn-xs btn-danger" onClick={deletePatient}>Eliminar</button>
             <div style={{flex:1}}/>
-            <button className="btn btn-sm" onClick={()=>setShowPDF(true)}>📄 Informe PDF</button>
+            <button className="btn btn-sm btn-success" onClick={()=>setShowPDF(true)}>📄 Generar Informe Clínico (IA)</button>
             <button className="btn btn-sm" onClick={()=>setShowConsulta(true)}>+ Nueva Consulta</button>
             <button className="btn btn-primary btn-sm" onClick={()=>onEdit(patient)}>✏️ Editar</button>
           </div>
@@ -879,7 +979,7 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit}){
   );
 }
 
-// ─── Finance Module ────────────────────────────────────────────────────────────
+// ─── FINANCE MODULE ────────────────────────────────────────────────────────────
 function FinanceModule({db,setDB}){
   const[showOpen,setShowOpen]=useState(false);
   const[consultaVal,setConsultaVal]=useState('');
@@ -1003,12 +1103,16 @@ function FinanceModule({db,setDB}){
   );
 }
 
-// ─── Config Module ─────────────────────────────────────────────────────────────
+// ─── CONFIG MODULE ─────────────────────────────────────────────────────────────
 function ConfigModule({db,setDB}){
   const[newCity,setNewCity]=useState('');
   const[newBrand,setNewBrand]=useState('');
   const[newType,setNewType]=useState('');
   const[msg,setMsg]=useState('');
+  
+  // Clave de Gemini IA
+  const[geminiKey, setKey] = useState(getGeminiKey());
+  const saveKey = () => { setGeminiKey(geminiKey); setMsg('API Key guardada en este navegador.'); };
 
   function add(key,val,setter){
     const v=val.trim();
@@ -1043,20 +1147,13 @@ function ConfigModule({db,setDB}){
         
         if (data.options || data.financialRecords || (data.patients && data.patients[0] && data.patients[0].fullName)) {
           let newDB = {
-            patients: [],
-            cities: [],
-            streets: [],
-            deviceTypes: [],
-            brands: [],
-            modes: [],
-            finances: { sessions: [], currentSession: null }
+            patients: [], cities: [], streets: [], deviceTypes: [], brands: [], modes: [], finances: { sessions: [], currentSession: null }
           };
 
           newDB.patients = data.patients.map(p => {
             const names = (p.fullName || "").split(" ");
             const apellido = names[0] || "";
             const nombre = names.slice(1).join(" ") || "";
-            
             const d = p.birthDate ? new Date(p.birthDate) : null;
             const dob = d ? `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}` : "";
 
@@ -1083,55 +1180,26 @@ function ConfigModule({db,setDB}){
             const consultas = (p.consultations || []).map(c => {
                const cd = c.date ? new Date(c.date) : null;
                const cdate = cd ? `${String(cd.getDate()).padStart(2, '0')}/${String(cd.getMonth() + 1).padStart(2, '0')}/${cd.getFullYear()}` : "";
-               
                let cbatY = "", cbatM = "", cbatPct = "", cbatType = "percent";
                if (c.battery && c.battery.type === "timeRemaining") {
                    cbatType = "time";
-                   if (c.battery.unit === "months") {
-                      cbatY = Math.floor(c.battery.value / 12);
-                      cbatM = c.battery.value % 12;
-                   } else {
-                      cbatY = c.battery.value;
-                      cbatM = 0;
-                   }
-                } else if (c.battery && c.battery.type === "percentage") {
-                   cbatPct = c.battery.value;
-                }
+                   if (c.battery.unit === "months") { cbatY = Math.floor(c.battery.value / 12); cbatM = c.battery.value % 12; } else { cbatY = c.battery.value; cbatM = 0; }
+                } else if (c.battery && c.battery.type === "percentage") { cbatPct = c.battery.value; }
 
                return {
-                  id: c.id || Date.now().toString() + Math.random(),
-                  date: cdate,
-                  brand: c.deviceBrand || "",
-                  batteryType: cbatType,
-                  batteryPct: cbatPct,
-                  batteryYears: cbatY,
-                  batteryMonths: cbatM,
-                  obs: c.observations || "",
-                  particular: !!c.isPrivate
+                  id: c.id || Date.now().toString() + Math.random(), date: cdate, brand: c.deviceBrand || "",
+                  batteryType: cbatType, batteryPct: cbatPct, batteryYears: cbatY, batteryMonths: cbatM, obs: c.observations || "", particular: !!c.isPrivate
                };
             });
 
             return {
-               id: p.id || Date.now().toString() + Math.random(),
-               apellido,
-               nombre,
-               dob,
+               id: p.id || Date.now().toString() + Math.random(), apellido, nombre, dob,
                telPrefix: (p.contacts && p.contacts[0] && p.contacts[0].phoneNumber && p.contacts[0].phoneNumber.startsWith("2314")) ? "2314" : "",
                telNum: (p.contacts && p.contacts[0] && p.contacts[0].phoneNumber && p.contacts[0].phoneNumber.startsWith("2314")) ? p.contacts[0].phoneNumber.slice(4) : (p.contacts && p.contacts[0] ? p.contacts[0].phoneNumber : ""),
-               telOwner,
-               telContact: (p.contacts && p.contacts[0]) ? p.contacts[0].ownerName : "",
-               city: p.address ? p.address.city : "",
-               street: p.address ? p.address.street : "",
-               streetNum: p.address ? p.address.houseNumber : "",
-               deviceType: p.device ? p.device.type : "Marcapasos",
-               brand: p.device ? p.device.brand : "",
-               mode: p.device ? p.device.mode : "",
-               batteryType: batType,
-               batteryPct: batPct,
-               batteryYears: batY,
-               batteryMonths: batM,
-               obs: p.observations || "",
-               consultas
+               telOwner, telContact: (p.contacts && p.contacts[0]) ? p.contacts[0].ownerName : "",
+               city: p.address ? p.address.city : "", street: p.address ? p.address.street : "", streetNum: p.address ? p.address.houseNumber : "",
+               deviceType: p.device ? p.device.type : "Marcapasos", brand: p.device ? p.device.brand : "", mode: p.device ? p.device.mode : "",
+               batteryType: batType, batteryPct: batPct, batteryYears: batY, batteryMonths: batM, obs: p.observations || "", consultas
             };
           });
 
@@ -1148,38 +1216,38 @@ function ConfigModule({db,setDB}){
                  sessions: data.financialRecords.map(f => {
                    const fd = new Date(f.date);
                    return {
-                      id: f.id,
-                      date: `${String(fd.getDate()).padStart(2, '0')}/${String(fd.getMonth() + 1).padStart(2, '0')}/${fd.getFullYear()}`,
-                      consultaVal: f.consultationValue,
-                      alquilerVal: f.officeRent,
-                      count: f.patientCount,
-                      total: f.totalValue,
-                      tecnico: f.technicianPercentage,
-                      secretaria: f.secretaryPercentage
+                      id: f.id, date: `${String(fd.getDate()).padStart(2, '0')}/${String(fd.getMonth() + 1).padStart(2, '0')}/${fd.getFullYear()}`,
+                      consultaVal: f.consultationValue, alquilerVal: f.officeRent, count: f.patientCount,
+                      total: f.totalValue, tecnico: f.technicianPercentage, secretaria: f.secretaryPercentage
                    };
                 })
              };
           }
           
-          setDB(newDB);
-          setMsg(`Migración exitosa: ${newDB.patients.length} pacientes adaptados.`);
+          setDB(newDB); setMsg(`Migración exitosa: ${newDB.patients.length} pacientes adaptados.`);
         } else {
           if (!Array.isArray(data.patients)) throw new Error('Formato inválido: falta la lista de pacientes');
-          setDB(data);
-          setMsg(`Importado exitosamente: ${data.patients.length} pacientes`);
+          setDB(data); setMsg(`Importado exitosamente: ${data.patients.length} pacientes`);
         }
-      } catch (err) {
-        setMsg('Error al importar: ' + err.message);
-      }
+      } catch (err) { setMsg('Error al importar: ' + err.message); }
     };
-    
-    r.readAsText(f);
-    e.target.value = '';
+    r.readAsText(f); e.target.value = '';
   }
 
   return(
     <div>
       {msg&&<div className="alert alert-success" onClick={()=>setMsg('')} style={{cursor:'pointer'}}>✓ {msg} <span style={{marginLeft:'auto',opacity:.5}}>✕</span></div>}
+      
+      <div className="card" style={{borderLeft: '4px solid #8b5cf6'}}>
+        <div className="card-title">🤖 Inteligencia Artificial (Informes Automáticos)</div>
+        <p style={{fontSize:13, color:'#4a5568', marginBottom:15}}>Para que el sistema extraiga datos de los PDFs automáticamente, necesitás una clave gratuita de Google Gemini.</p>
+        <div style={{display:'flex', gap:10, flexWrap:'wrap'}}>
+          <input type="password" value={geminiKey} onChange={e=>setKey(e.target.value)} placeholder="Pegá acá tu API Key de Gemini..." style={{flex:1, minWidth:250}}/>
+          <button className="btn btn-primary" onClick={saveKey}>Guardar Clave</button>
+        </div>
+        <p style={{fontSize:11, color:'#a0aec0', marginTop:8}}>*La clave se guarda localmente en tu navegador. No se envía a ningún servidor propio.</p>
+      </div>
+
       <div className="grid2">
         {[
           {label:'Ciudades',key:'cities',val:newCity,set:setNewCity,ph:'Nueva ciudad'},
@@ -1188,14 +1256,12 @@ function ConfigModule({db,setDB}){
           <div className="card" key={key}>
             <div className="card-title">{label} <span className="badge badge-gray">{db[key].length}</span></div>
             <div style={{display:'flex',gap:6,marginBottom:'.75rem'}}>
-              <input value={val} onChange={e=>set(e.target.value)} placeholder={ph}
-                onKeyDown={e=>e.key==='Enter'&&add(key,val,set)}/>
+              <input value={val} onChange={e=>set(e.target.value)} placeholder={ph} onKeyDown={e=>e.key==='Enter'&&add(key,val,set)}/>
               <button className="btn btn-primary btn-sm" onClick={()=>add(key,val,set)}>+</button>
             </div>
             <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
               {db[key].map(x=>(
-                <span key={x} className="chip" style={{cursor:'pointer'}} title="Clic para eliminar"
-                  onClick={()=>remove(key,x)}>{x} ×</span>
+                <span key={x} className="chip" style={{cursor:'pointer'}} title="Clic para eliminar" onClick={()=>remove(key,x)}>{x} ×</span>
               ))}
             </div>
           </div>
@@ -1205,14 +1271,11 @@ function ConfigModule({db,setDB}){
       <div className="card">
         <div className="card-title">Tipos de Dispositivo <span className="badge badge-gray">{db.deviceTypes.length}</span></div>
         <div style={{display:'flex',gap:6,marginBottom:'.75rem'}}>
-          <input value={newType} onChange={e=>setNewType(e.target.value)} placeholder="Nuevo tipo"
-            onKeyDown={e=>e.key==='Enter'&&add('deviceTypes',newType,setNewType)}/>
+          <input value={newType} onChange={e=>setNewType(e.target.value)} placeholder="Nuevo tipo" onKeyDown={e=>e.key==='Enter'&&add('deviceTypes',newType,setNewType)}/>
           <button className="btn btn-primary btn-sm" onClick={()=>add('deviceTypes',newType,setNewType)}>+</button>
         </div>
         <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-          {db.deviceTypes.map(x=>(
-            <span key={x} className="chip" style={{cursor:'pointer'}} onClick={()=>remove('deviceTypes',x)}>{x} ×</span>
-          ))}
+          {db.deviceTypes.map(x=>( <span key={x} className="chip" style={{cursor:'pointer'}} onClick={()=>remove('deviceTypes',x)}>{x} ×</span> ))}
         </div>
       </div>
 
@@ -1221,19 +1284,13 @@ function ConfigModule({db,setDB}){
           <div className="card-title">Calles aprendidas <span className="badge badge-gray">{db.streets.length}</span></div>
           {db.streets.length===0
             ?<p style={{fontSize:13,color:'#a0aec0'}}>Se agregan automáticamente al guardar pacientes.</p>
-            :<div style={{display:'flex',flexWrap:'wrap',gap:5}}>{db.streets.map(x=>(
-              <span key={x} className="chip chip-green" style={{cursor:'pointer'}} title="Clic para eliminar"
-                onClick={()=>remove('streets',x)}>{x} ×</span>
-            ))}</div>}
+            :<div style={{display:'flex',flexWrap:'wrap',gap:5}}>{db.streets.map(x=>( <span key={x} className="chip chip-green" style={{cursor:'pointer'}} title="Clic para eliminar" onClick={()=>remove('streets',x)}>{x} ×</span> ))}</div>}
         </div>
         <div className="card">
           <div className="card-title">Modos aprendidos <span className="badge badge-gray">{db.modes.length}</span></div>
           {db.modes.length===0
             ?<p style={{fontSize:13,color:'#a0aec0'}}>Se agregan automáticamente al guardar pacientes.</p>
-            :<div style={{display:'flex',flexWrap:'wrap',gap:5}}>{db.modes.map(x=>(
-              <span key={x} className="chip chip-green" style={{cursor:'pointer'}} title="Clic para eliminar"
-                onClick={()=>remove('modes',x)}>{x} ×</span>
-            ))}</div>}
+            :<div style={{display:'flex',flexWrap:'wrap',gap:5}}>{db.modes.map(x=>( <span key={x} className="chip chip-green" style={{cursor:'pointer'}} title="Clic para eliminar" onClick={()=>remove('modes',x)}>{x} ×</span> ))}</div>}
         </div>
       </div>
 
@@ -1249,16 +1306,14 @@ function ConfigModule({db,setDB}){
         <p style={{fontSize:12,color:'#a0aec0'}}>Exportar guarda toda la base de datos como respaldo. La importación reemplaza todo el contenido actual.</p>
         <div className="divider"/>
         <div style={{fontSize:12,color:'#a0aec0'}}>
-          Pacientes: <strong style={{color:'#1a202c'}}>{db.patients.length}</strong> ·
-          Calles: <strong style={{color:'#1a202c'}}>{db.streets.length}</strong> ·
-          Modos: <strong style={{color:'#1a202c'}}>{db.modes.length}</strong>
+          Pacientes: <strong style={{color:'#1a202c'}}>{db.patients.length}</strong> · Calles: <strong style={{color:'#1a202c'}}>{db.streets.length}</strong> · Modos: <strong style={{color:'#1a202c'}}>{db.modes.length}</strong>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Print List ────────────────────────────────────────────────────────────────
+// ─── PRINT LIST ────────────────────────────────────────────────────────────────
 function PrintListModal({patients,onClose}){
   return(
     <div className="modal-overlay">
@@ -1302,7 +1357,7 @@ function PrintListModal({patients,onClose}){
   );
 }
 
-// ─── Main App ──────────────────────────────────────────────────────────────────
+// ─── MAIN APP ──────────────────────────────────────────────────────────────────
 function App(){
   const[db,setDBRaw]=useState(initDB);
   const[view,setView]=useState('patients');
