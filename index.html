@@ -1391,13 +1391,29 @@ function App(){
   const[selectedId,setSelectedId]=useState(null);
   const[editPatient,setEditPatient]=useState(null);
   const[showPrint,setShowPrint]=useState(false);
+  
+  // NUEVA MEJORA: Estado para el criterio de ordenamiento
+  const[sortBy, setSortBy] = useState('name'); // 'name' o 'brand'
 
   function setDB(d){setDBRaw(d);saveDB(d)}
 
-  const sorted=useMemo(()=>
-    [...db.patients].sort((a,b)=>
-      (a.apellido+a.nombre).localeCompare(b.apellido+b.nombre,'es')
-    ),[db.patients]);
+  // Lógica de ordenamiento actualizada
+  const sorted = useMemo(() => {
+    return [...db.patients].sort((a, b) => {
+      if (sortBy === 'brand') {
+        // Primero agrupamos por marca
+        const brandA = a.brand || 'Z-Sin Marca'; // 'Z' para mandarlos al final
+        const brandB = b.brand || 'Z-Sin Marca';
+        const brandComp = brandA.localeCompare(brandB, 'es');
+        
+        // Si las marcas son iguales, ordenamos por nombre dentro de esa marca
+        if (brandComp !== 0) return brandComp;
+      }
+      
+      // Orden por defecto: Apellido y Nombre
+      return (a.apellido + a.nombre).localeCompare(b.apellido + b.nombre, 'es');
+    });
+  }, [db.patients, sortBy]);
 
   const filtered=useMemo(()=>{
     const q=search.trim().toLowerCase();
@@ -1449,23 +1465,48 @@ function App(){
                   <input value={search} onChange={e=>setSearch(e.target.value)}
                     placeholder="Buscar por apellido o nombre..." autoFocus/>
                 </div>
+                
+                {/* NUEVA MEJORA: Botones de ordenamiento */}
+                <div style={{display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', border: '0.5px solid #e2e8f0'}}>
+                  <button 
+                    onClick={() => setSortBy('name')}
+                    style={{
+                      padding: '4px 10px', fontSize: '11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                      background: sortBy === 'name' ? '#fff' : 'transparent',
+                      boxShadow: sortBy === 'name' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                      fontWeight: sortBy === 'name' ? '700' : '500',
+                      color: sortBy === 'name' ? '#1a56db' : '#64748b'
+                    }}
+                  >AZ Nombre</button>
+                  <button 
+                    onClick={() => setSortBy('brand')}
+                    style={{
+                      padding: '4px 10px', fontSize: '11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                      background: sortBy === 'brand' ? '#fff' : 'transparent',
+                      boxShadow: sortBy === 'brand' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                      fontWeight: sortBy === 'brand' ? '700' : '500',
+                      color: sortBy === 'brand' ? '#1a56db' : '#64748b'
+                    }}
+                  >🏷️ Marca</button>
+                </div>
+
                 <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
                   <span className="badge badge-blue" style={{fontSize:13,padding:'5px 12px',fontWeight:700}}>
-                    {db.patients.length} paciente{db.patients.length!==1?'s':''}
+                    {db.patients.length} pacientes
                   </span>
-                  <button className="btn btn-sm" onClick={()=>setShowPrint(true)}>🖨 Imprimir Lista</button>
+                  <button className="btn btn-sm" onClick={()=>setShowPrint(true)}>🖨 Imprimir</button>
                 </div>
               </div>
             </div>
 
-            {/* MEJORA 1: RESUMEN DE STOCK POR MARCAS */}
+            {/* RESUMEN DE STOCK POR MARCAS (MEJORA ANTERIOR) */}
             <div className="card" style={{padding: '.75rem 1.25rem', marginBottom: '1rem'}}>
               <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '12px', alignItems: 'center'}}>
                 <span style={{fontWeight: 700, color: '#4a5568', textTransform: 'uppercase', fontSize: '10px'}}>📊 Pacientes por Marca:</span>
                 {db.brands.map(b => {
                   const count = db.patients.filter(p => p.brand === b).length;
                   return count > 0 ? (
-                    <div key={b} style={{display:'flex', alignItems:'center', background:'#f1f5f9', padding:'2px 8px', borderRadius:'6px', border:'0.5px solid #e2e8f0'}}>
+                    <div key={b} style={{display:'flex', alignItems:'center', background: sortBy === 'brand' ? '#ebf4ff' : '#f1f5f9', padding:'2px 8px', borderRadius:'6px', border: sortBy === 'brand' ? '0.5px solid #1a56db' : '0.5px solid #e2e8f0'}}>
                       <span style={{color: '#64748b', marginRight: '5px'}}>{b}:</span>
                       <strong style={{color: '#1a56db'}}>{count}</strong>
                     </div>
@@ -1507,7 +1548,7 @@ function App(){
                           <td>{calcAge(p.dob)??'—'}</td>
                           <td style={{color:'#718096'}}>{p.city||'—'}</td>
                           <td>{p.deviceType||'—'}</td>
-                          <td>{p.brand||'—'}</td>
+                          <td style={{fontWeight: sortBy === 'brand' ? '700' : 'normal', color: sortBy === 'brand' ? '#1a56db' : 'inherit'}}>{p.brand||'—'}</td>
                           <td><span className={`badge ${batteryColor(p)}`}>{batteryDisplay(p)}</span></td>
                           <td style={{color:'#718096',fontSize:12}}>{lastConsulta(p)}</td>
                           <td><span className="badge badge-gray">{(p.consultas||[]).length}</span></td>
@@ -1536,7 +1577,7 @@ function App(){
         )}
       </div>
 
-      {/* MEJORA 2: CONTADOR FLOTANTE DE PACIENTES ATENDIDOS EN LA JORNADA */}
+      {/* CONTADOR FLOTANTE (MEJORA ANTERIOR) */}
       {db.finances?.currentSession && (
         <div 
           style={{
