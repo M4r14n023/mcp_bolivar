@@ -461,25 +461,31 @@ function ConsultaForm({patient,db,setDB,onClose}){
   });
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
 
-  function save(){
-    const newC={...form};
-    const updP={...patient,
-      consultas:[...(patient.consultas||[]),newC],
-      brand:form.brand,
-      batteryType:form.batteryType,
-      batteryPct:form.batteryPct,
-      batteryYears:form.batteryYears,
-      batteryMonths:form.batteryMonths
-    };
-    let newDB={...db,patients:db.patients.map(p=>p.id===patient.id?updP:p)};
-    if(!form.particular&&newDB.finances?.currentSession){
-      newDB.finances={...newDB.finances,currentSession:{
-        ...newDB.finances.currentSession,
-        count:(newDB.finances.currentSession.count||0)+1
-      }};
-    }
-    setDB(newDB);onClose();
-  }
+  // Busca esta función dentro de PatientForm y reemplázala:
+function save(){
+  if(!form.apellido.trim()||!form.nombre.trim()){setErr('Apellido y nombre son requeridos');return}
+  const dup=db.patients.find(p=>
+    p.id!==form.id&&
+    p.apellido.trim().toLowerCase()===form.apellido.trim().toLowerCase()&&
+    p.nombre.trim().toLowerCase()===form.nombre.trim().toLowerCase()
+  );
+  if(dup){setErr(`Ya existe un paciente: ${dup.apellido}, ${dup.nombre}`);return}
+
+  let newDB={...db};
+  const st=form.street?.trim();
+  const mo=form.mode?.trim();
+  if(st&&!newDB.streets.includes(st))newDB.streets=sortArr([...newDB.streets,st]);
+  if(mo&&!newDB.modes.includes(mo))newDB.modes=sortArr([...newDB.modes,mo]);
+
+  const saved={...form,apellido:form.apellido.trim(),nombre:form.nombre.trim()};
+  newDB.patients=isEdit
+    ?newDB.patients.map(p=>p.id===saved.id?saved:p)
+    :[...newDB.patients,saved];
+  setDB(newDB);
+  
+  // CAMBIO: Pasamos el ID al cerrar para saber a quién abrir la consulta
+  onClose(saved.id); 
+}
 
   return(
     <div className="modal-overlay" style={{zIndex:300}}>
@@ -865,10 +871,18 @@ function AIReportGenerator({patient, onClose}) {
 }
 
 // ─── PATIENT DETAIL ────────────────────────────────────────────────────────────
-function PatientDetail({patientId,db,setDB,onClose,onEdit}){
+function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta}){
   const[tab,setTab]=useState('info');
   const[showConsulta,setShowConsulta]=useState(false);
   const[showPDF,setShowPDF]=useState(false);
+
+  // NUEVO: Abrir consulta automáticamente si viene del guardado
+  useEffect(() => {
+    if (initialOpenConsulta) {
+      setShowConsulta(true);
+    }
+  }, [initialOpenConsulta]);
+
   const patient=db.patients.find(p=>p.id===patientId);
   if(!patient)return null;
   const age=calcAge(patient.dob);
@@ -1391,26 +1405,32 @@ function App(){
   const[selectedId,setSelectedId]=useState(null);
   const[editPatient,setEditPatient]=useState(null);
   const[showPrint,setShowPrint]=useState(false);
+  const[sortBy, setSortBy] = useState('name'); 
   
-  // NUEVA MEJORA: Estado para el criterio de ordenamiento
-  const[sortBy, setSortBy] = useState('name'); // 'name' o 'brand'
+  // MEJORA: Estado para disparar la apertura automática del modal de consulta
+  const[autoOpenConsulta, setAutoOpenConsulta] = useState(false);
 
   function setDB(d){setDBRaw(d);saveDB(d)}
 
-  // Lógica de ordenamiento actualizada
+  // MEJORA: Función centralizada para manejar el flujo después de guardar
+  const handleAfterSave = (id) => {
+    setShowNew(false);
+    setEditPatient(null);
+    // Si hay un ID (guardado exitoso), preguntamos si se quiere agregar consulta
+    if (id && window.confirm("¿Desea agregar una nueva consulta para este paciente ahora?")) {
+      setSelectedId(id);
+      setAutoOpenConsulta(true);
+    }
+  };
+
   const sorted = useMemo(() => {
     return [...db.patients].sort((a, b) => {
       if (sortBy === 'brand') {
-        // Primero agrupamos por marca
-        const brandA = a.brand || 'Z-Sin Marca'; // 'Z' para mandarlos al final
+        const brandA = a.brand || 'Z-Sin Marca';
         const brandB = b.brand || 'Z-Sin Marca';
         const brandComp = brandA.localeCompare(brandB, 'es');
-        
-        // Si las marcas son iguales, ordenamos por nombre dentro de esa marca
         if (brandComp !== 0) return brandComp;
       }
-      
-      // Orden por defecto: Apellido y Nombre
       return (a.apellido + a.nombre).localeCompare(b.apellido + b.nombre, 'es');
     });
   }, [db.patients, sortBy]);
@@ -1427,12 +1447,19 @@ function App(){
 
   return(
     <div className="app">
-      {showNew&&<PatientForm db={db} setDB={setDB} onClose={()=>setShowNew(false)}/>}
-      {editPatient&&<PatientForm db={db} setDB={setDB} patient={editPatient} onClose={()=>setEditPatient(null)}/>}
-      {selectedId&&!editPatient&&(
-        <PatientDetail patientId={selectedId} db={db} setDB={setDB}
-          onClose={()=>setSelectedId(null)}
-          onEdit={p=>{setSelectedId(null);setEditPatient(p)}}/>
+      {/* Pasamos handleAfterSave como el nuevo manejador de cierre */}
+      {showNew && <PatientForm db={db} setDB={setDB} onClose={handleAfterSave}/>}
+      {editPatient && <PatientForm db={db} setDB={setDB} patient={editPatient} onClose={handleAfterSave}/>}
+      
+      {selectedId && !editPatient && (
+        <PatientDetail 
+          patientId={selectedId} 
+          db={db} 
+          setDB={setDB}
+          onClose={() => {setSelectedId(null); setAutoOpenConsulta(false);}}
+          onEdit={p => {setSelectedId(null); setEditPatient(p);}}
+          initialOpenConsulta={autoOpenConsulta} // Propiedad para el PatientDetail actualizado
+        />
       )}
       {showPrint&&<PrintListModal patients={sorted} onClose={()=>setShowPrint(false)}/>}
 
@@ -1466,7 +1493,6 @@ function App(){
                     placeholder="Buscar por apellido o nombre..." autoFocus/>
                 </div>
                 
-                {/* NUEVA MEJORA: Botones de ordenamiento */}
                 <div style={{display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', border: '0.5px solid #e2e8f0'}}>
                   <button 
                     onClick={() => setSortBy('name')}
@@ -1499,7 +1525,6 @@ function App(){
               </div>
             </div>
 
-            {/* RESUMEN DE STOCK POR MARCAS (MEJORA ANTERIOR) */}
             <div className="card" style={{padding: '.75rem 1.25rem', marginBottom: '1rem'}}>
               <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '12px', alignItems: 'center'}}>
                 <span style={{fontWeight: 700, color: '#4a5568', textTransform: 'uppercase', fontSize: '10px'}}>📊 Pacientes por Marca:</span>
@@ -1577,7 +1602,6 @@ function App(){
         )}
       </div>
 
-      {/* CONTADOR FLOTANTE (MEJORA ANTERIOR) */}
       {db.finances?.currentSession && (
         <div 
           style={{
