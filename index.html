@@ -1022,7 +1022,7 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta}){
   );
 }
 
-// ─── FINANCE MODULE ────────────────────────────────────────────────────────────
+// ─── FINANCE MODULE (DESGLOSE COMPLETO 80/20) ──────────────────────────────────
 function FinanceModule({db,setDB}){
   const[showOpen,setShowOpen]=useState(false);
   const[consultaVal,setConsultaVal]=useState('');
@@ -1044,11 +1044,21 @@ function FinanceModule({db,setDB}){
   function close(){
     if(!cs)return;
     if(!window.confirm('¿Cerrar la jornada actual?'))return;
-    const total=cs.consultaVal*cs.count;
-    const tecnico=cs.alquilerVal*0.8;
-    const secretaria=cs.alquilerVal*0.2;
+    
+    const totalRecaudado = cs.consultaVal * cs.count;
+    
     setDB({...db,finances:{
-      sessions:[...(fin.sessions||[]),{...cs,total,tecnico,secretaria,closedAt:new Date().toISOString()}],
+      sessions:[...(fin.sessions||[]),{
+        ...cs,
+        total: totalRecaudado,
+        // Desglose de Ganancias (Honorarios)
+        gananciaMio: totalRecaudado * 0.8,
+        gananciaSec: totalRecaudado * 0.2,
+        // Desglose de Gastos (Alquiler)
+        costoMio: cs.alquilerVal * 0.8,
+        costoSec: cs.alquilerVal * 0.2,
+        closedAt:new Date().toISOString()
+      }],
       currentSession:null
     }});
   }
@@ -1069,7 +1079,6 @@ function FinanceModule({db,setDB}){
               <button className="btn btn-sm" onClick={()=>setShowOpen(false)}>✕</button>
             </div>
             <div className="modal-body">
-              <div className="alert alert-info">Los pacientes se cuentan automáticamente al guardar consultas no marcadas como "Particulares".</div>
               <div className="form-group">
                 <label>Valor de la Consulta ($)</label>
                 <input type="number" value={consultaVal} onChange={e=>setConsultaVal(e.target.value)} placeholder="5000" autoFocus/>
@@ -1087,59 +1096,110 @@ function FinanceModule({db,setDB}){
         </div>
       )}
 
-      {cs?(
+      {cs ? (
         <div className="card finance-active">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
             <div>
               <div style={{fontWeight:700,fontSize:15,color:'#1a56db'}}>● Jornada Activa — {cs.date}</div>
-              <div style={{fontSize:12,color:'#718096',marginTop:2}}>Consulta: ${cs.consultaVal?.toLocaleString('es-AR')} · Alquiler: ${cs.alquilerVal?.toLocaleString('es-AR')}</div>
+              <div style={{fontSize:11,color:'#718096'}}>Consulta: ${cs.consultaVal} · Alquiler: ${cs.alquilerVal}</div>
             </div>
             <button className="btn btn-danger btn-sm" onClick={close}>Cerrar Jornada</button>
           </div>
-          <div className="grid4">
-            <div className="stat-card"><div className="stat-num" style={{fontSize:28}}>{cs.count}</div><div className="stat-label">Pacientes atendidos</div></div>
-            <div className="stat-card"><div className="stat-num">${(cs.consultaVal*(cs.count||0)).toLocaleString('es-AR')}</div><div className="stat-label">Ingreso total estimado</div></div>
-            <div className="stat-card"><div className="stat-num" style={{color:'#38a169'}}>${(cs.alquilerVal*0.8).toLocaleString('es-AR')}</div><div className="stat-label">Técnico (80% alquiler)</div></div>
-            <div className="stat-card"><div className="stat-num" style={{color:'#d69e2e'}}>${(cs.alquilerVal*0.2).toLocaleString('es-AR')}</div><div className="stat-label">Secretaria (20% alquiler)</div></div>
+          
+          <div className="grid2">
+            {/* SECCIÓN RECAUDACIÓN */}
+            <div style={{background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0'}}>
+              <div style={{fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase'}}>Recaudación (80/20)</div>
+              <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span style={{fontSize: '13px'}}>Total ({cs.count} pact.):</span>
+                  <strong style={{fontSize: '14px'}}>${(cs.consultaVal * cs.count).toLocaleString('es-AR')}</strong>
+                </div>
+                <div style={{display: 'flex', justifyContent: 'space-between', color: '#166534'}}>
+                  <span style={{fontSize: '13px'}}>Mío (80%):</span>
+                  <strong style={{fontSize: '14px'}}>${(cs.consultaVal * cs.count * 0.8).toLocaleString('es-AR')}</strong>
+                </div>
+                <div style={{display: 'flex', justifyContent: 'space-between', color: '#92400e'}}>
+                  <span style={{fontSize: '13px'}}>Secretaría (20%):</span>
+                  <strong style={{fontSize: '14px'}}>${(cs.consultaVal * cs.count * 0.2).toLocaleString('es-AR')}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN ALQUILER */}
+            <div style={{background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0'}}>
+              <div style={{fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase'}}>Gasto Alquiler (80/20)</div>
+              <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span style={{fontSize: '13px'}}>Costo Total:</span>
+                  <strong style={{fontSize: '14px'}}>${cs.alquilerVal.toLocaleString('es-AR')}</strong>
+                </div>
+                <div style={{display: 'flex', justifyContent: 'space-between', color: '#991b1b'}}>
+                  <span style={{fontSize: '13px'}}>Mi aporte (80%):</span>
+                  <strong style={{fontSize: '14px'}}>-${(cs.alquilerVal * 0.8).toLocaleString('es-AR')}</strong>
+                </div>
+                <div style={{display: 'flex', justifyContent: 'space-between', color: '#991b1b'}}>
+                  <span style={{fontSize: '13px'}}>Sec. aporte (20%):</span>
+                  <strong style={{fontSize: '14px'}}>-${(cs.alquilerVal * 0.2).toLocaleString('es-AR')}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{marginTop: '15px', paddingTop: '10px', borderTop: '1px dashed #cbd5e0', textAlign: 'center'}}>
+            <div style={{fontSize: '12px', color: '#64748b'}}>Ganancia Neta Personal (Honorarios - Alquiler):</div>
+            <div style={{fontSize: '22px', fontWeight: '800', color: '#1a56db'}}>${( (cs.consultaVal * cs.count * 0.8) - (cs.alquilerVal * 0.8) ).toLocaleString('es-AR')}</div>
           </div>
         </div>
-      ):(
-        <div className="card" style={{textAlign:'center',padding:'2.5rem'}}>
-          <div style={{fontSize:40,marginBottom:'.5rem',opacity:.5}}>💼</div>
-          <p style={{color:'#718096',marginBottom:'1rem',fontSize:14}}>No hay jornada activa</p>
+      ) : (
+        <div className="card" style={{textAlign:'center',padding:'2rem'}}>
+          <div style={{fontSize:40,marginBottom:'.5rem'}}>💼</div>
+          <p style={{color:'#718096',marginBottom:'1rem'}}>No hay jornada activa</p>
           <button className="btn btn-primary" onClick={()=>setShowOpen(true)}>Abrir Nueva Jornada</button>
         </div>
       )}
 
       <div className="card">
-        <div className="card-title">📊 Historial de Jornadas Cerradas</div>
-        {sessions.length===0?(
-          <div className="empty-state"><p>Sin jornadas cerradas aún</p></div>
-        ):(
-          <>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.75rem',marginBottom:'1rem'}}>
-              <div className="stat-card"><div className="stat-num">{sessions.length}</div><div className="stat-label">Jornadas totales</div></div>
-              <div className="stat-card"><div className="stat-num">{sessions.reduce((a,s)=>a+(s.count||0),0)}</div><div className="stat-label">Pacientes totales</div></div>
-              <div className="stat-card"><div className="stat-num">${sessions.reduce((a,s)=>a+(s.total||0),0).toLocaleString('es-AR')}</div><div className="stat-label">Ingreso acumulado</div></div>
-            </div>
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>Fecha</th><th>Pacientes</th><th>Ingreso Total</th><th>Técnico (alq.)</th><th>Secretaria (alq.)</th><th></th></tr></thead>
-                <tbody>
-                  {sessions.map(s=>(
+        <div className="card-title">📊 Historial de Cierres</div>
+        {sessions.length === 0 ? (
+          <div className="empty-state"><p>Sin registros aún</p></div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Recaudado</th>
+                  <th>Mío (80%)</th>
+                  <th>Sec (20%)</th>
+                  <th>Alq. (80/20)</th>
+                  <th>Neto Mío</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.map(s => {
+                  const rMio = s.gananciaMio || (s.total * 0.8);
+                  const rSec = s.gananciaSec || (s.total * 0.2);
+                  const aMio = s.costoMio || (s.alquilerVal * 0.8);
+                  const aSec = s.costoSec || (s.alquilerVal * 0.2);
+                  return (
                     <tr key={s.id}>
                       <td style={{fontWeight:500}}>{s.date}</td>
-                      <td><span className="badge badge-blue">{s.count}</span></td>
-                      <td style={{fontWeight:600,color:'#276749'}}>${(s.total||0).toLocaleString('es-AR')}</td>
-                      <td>${(s.tecnico||0).toLocaleString('es-AR')}</td>
-                      <td>${(s.secretaria||0).toLocaleString('es-AR')}</td>
+                      <td>${(s.total||0).toLocaleString('es-AR')}</td>
+                      <td style={{color:'#166534', fontWeight: '600'}}>${rMio.toLocaleString('es-AR')}</td>
+                      <td style={{color:'#92400e'}}>${rSec.toLocaleString('es-AR')}</td>
+                      <td style={{fontSize: '11px', color: '#64748b'}}>
+                        ${aMio.toLocaleString('es-AR')} / ${aSec.toLocaleString('es-AR')}
+                      </td>
+                      <td style={{fontWeight:700, color: '#1a56db'}}>${(rMio - aMio).toLocaleString('es-AR')}</td>
                       <td><button className="btn btn-xs btn-danger" onClick={()=>deleteSession(s.id)}>✕</button></td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
