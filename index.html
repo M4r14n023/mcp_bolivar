@@ -1405,24 +1405,30 @@ function App(){
   const[selectedId,setSelectedId]=useState(null);
   const[editPatient,setEditPatient]=useState(null);
   const[showPrint,setShowPrint]=useState(false);
-  const[sortBy, setSortBy] = useState('name'); 
   
-  // MEJORA: Estado para disparar la apertura automática del modal de consulta
+  // Estado para el criterio de ordenamiento: 'name', 'brand' o 'date'
+  const[sortBy, setSortBy] = useState('name'); 
   const[autoOpenConsulta, setAutoOpenConsulta] = useState(false);
 
   function setDB(d){setDBRaw(d);saveDB(d)}
 
-  // MEJORA: Función centralizada para manejar el flujo después de guardar
   const handleAfterSave = (id) => {
     setShowNew(false);
     setEditPatient(null);
-    // Si hay un ID (guardado exitoso), preguntamos si se quiere agregar consulta
     if (id && window.confirm("¿Desea agregar una nueva consulta para este paciente ahora?")) {
       setSelectedId(id);
       setAutoOpenConsulta(true);
     }
   };
 
+  // Función auxiliar para convertir "DD/MM/YYYY" a un número comparable
+  const parseDateForSort = (dateStr) => {
+    if (!dateStr || dateStr === 'Sin control') return 0;
+    const [d, m, y] = dateStr.split('/');
+    return new Date(y, m - 1, d).getTime();
+  };
+
+  // Lógica de ordenamiento actualizada con FECHA
   const sorted = useMemo(() => {
     return [...db.patients].sort((a, b) => {
       if (sortBy === 'brand') {
@@ -1430,7 +1436,14 @@ function App(){
         const brandB = b.brand || 'Z-Sin Marca';
         const brandComp = brandA.localeCompare(brandB, 'es');
         if (brandComp !== 0) return brandComp;
+      } 
+      else if (sortBy === 'date') {
+        const dateA = parseDateForSort(lastConsulta(a));
+        const dateB = parseDateForSort(lastConsulta(b));
+        // De más reciente a más antiguo
+        if (dateA !== dateB) return dateB - dateA; 
       }
+      
       return (a.apellido + a.nombre).localeCompare(b.apellido + b.nombre, 'es');
     });
   }, [db.patients, sortBy]);
@@ -1447,7 +1460,6 @@ function App(){
 
   return(
     <div className="app">
-      {/* Pasamos handleAfterSave como el nuevo manejador de cierre */}
       {showNew && <PatientForm db={db} setDB={setDB} onClose={handleAfterSave}/>}
       {editPatient && <PatientForm db={db} setDB={setDB} patient={editPatient} onClose={handleAfterSave}/>}
       
@@ -1458,7 +1470,7 @@ function App(){
           setDB={setDB}
           onClose={() => {setSelectedId(null); setAutoOpenConsulta(false);}}
           onEdit={p => {setSelectedId(null); setEditPatient(p);}}
-          initialOpenConsulta={autoOpenConsulta} // Propiedad para el PatientDetail actualizado
+          initialOpenConsulta={autoOpenConsulta}
         />
       )}
       {showPrint&&<PrintListModal patients={sorted} onClose={()=>setShowPrint(false)}/>}
@@ -1493,6 +1505,7 @@ function App(){
                     placeholder="Buscar por apellido o nombre..." autoFocus/>
                 </div>
                 
+                {/* BOTONES DE ORDENAMIENTO ACTUALIZADOS */}
                 <div style={{display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', border: '0.5px solid #e2e8f0'}}>
                   <button 
                     onClick={() => setSortBy('name')}
@@ -1514,6 +1527,16 @@ function App(){
                       color: sortBy === 'brand' ? '#1a56db' : '#64748b'
                     }}
                   >🏷️ Marca</button>
+                  <button 
+                    onClick={() => setSortBy('date')}
+                    style={{
+                      padding: '4px 10px', fontSize: '11px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                      background: sortBy === 'date' ? '#fff' : 'transparent',
+                      boxShadow: sortBy === 'date' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                      fontWeight: sortBy === 'date' ? '700' : '500',
+                      color: sortBy === 'date' ? '#1a56db' : '#64748b'
+                    }}
+                  >📅 Últ. Control</button>
                 </div>
 
                 <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
@@ -1527,7 +1550,7 @@ function App(){
 
             <div className="card" style={{padding: '.75rem 1.25rem', marginBottom: '1rem'}}>
               <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '12px', alignItems: 'center'}}>
-                <span style={{fontWeight: 700, color: '#4a5568', textTransform: 'uppercase', fontSize: '10px'}}>📊 Pacientes por Marca:</span>
+                <span style={{fontWeight: 700, color: '#4a5568', textTransform: 'uppercase', fontSize: '10px'}}>📊 Resumen:</span>
                 {db.brands.map(b => {
                   const count = db.patients.filter(p => p.brand === b).length;
                   return count > 0 ? (
@@ -1575,7 +1598,7 @@ function App(){
                           <td>{p.deviceType||'—'}</td>
                           <td style={{fontWeight: sortBy === 'brand' ? '700' : 'normal', color: sortBy === 'brand' ? '#1a56db' : 'inherit'}}>{p.brand||'—'}</td>
                           <td><span className={`badge ${batteryColor(p)}`}>{batteryDisplay(p)}</span></td>
-                          <td style={{color:'#718096',fontSize:12}}>{lastConsulta(p)}</td>
+                          <td style={{fontWeight: sortBy === 'date' ? '700' : 'normal', color: sortBy === 'date' ? '#1a56db' : '#718096', fontSize:12}}>{lastConsulta(p)}</td>
                           <td><span className="badge badge-gray">{(p.consultas||[]).length}</span></td>
                         </tr>
                       ))}
