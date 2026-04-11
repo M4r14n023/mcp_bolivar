@@ -292,7 +292,6 @@ function BatteryFields({form,set, disabled=false}){
   );
 }
 
-// ─── PATIENT FORM ──────────────────────────────────────────────────────────────
 function PatientForm({db,setDB,patient,onClose}){
   const isEdit=!!patient;
   const[form,setForm]=useState(()=>patient?{...patient}:{
@@ -327,7 +326,9 @@ function PatientForm({db,setDB,patient,onClose}){
     newDB.patients=isEdit
       ?newDB.patients.map(p=>p.id===saved.id?saved:p)
       :[...newDB.patients,saved];
-    setDB(newDB);onClose();
+    setDB(newDB);
+    // IMPORTANTE: Aquí pasamos el ID para que App sepa a quién abrirle la consulta
+    onClose(saved.id);
   }
 
   return(
@@ -335,11 +336,10 @@ function PatientForm({db,setDB,patient,onClose}){
       <div className="modal modal-lg">
         <div className="modal-header">
           <span className="modal-title">{isEdit?`Editar — ${form.apellido}, ${form.nombre}`:'Nuevo Paciente'}</span>
-          <button className="btn btn-sm" onClick={onClose}>✕</button>
+          <button className="btn btn-sm" onClick={() => onClose()}>✕</button>
         </div>
         <div className="modal-body">
           {err&&<div className="alert alert-error">⚠ {err}</div>}
-
           <div className="section-title">Datos Personales</div>
           <div className="grid2">
             <div className="form-group">
@@ -396,7 +396,7 @@ function PatientForm({db,setDB,patient,onClose}){
               </select>
             </div>
             <div className="form-group">
-              <label>Calle <span style={{fontSize:11,color:'#a0aec0'}}>(autocompleta)</span></label>
+              <label>Calle</label>
               <ACInput value={form.street||''} onChange={v=>set('street',v)}
                 list={db.streets} placeholder="Av. San Martín"/>
             </div>
@@ -422,7 +422,7 @@ function PatientForm({db,setDB,patient,onClose}){
               </select>
             </div>
             <div className="form-group">
-              <label>Modo <span style={{fontSize:11,color:'#a0aec0'}}>(autocompleta)</span></label>
+              <label>Modo</label>
               <ACInput value={form.mode||''} onChange={v=>set('mode',v)}
                 list={db.modes} placeholder="DDDR, VVI..."/>
             </div>
@@ -436,7 +436,7 @@ function PatientForm({db,setDB,patient,onClose}){
             placeholder="Notas clínicas adicionales..."/>
         </div>
         <div className="modal-footer">
-          <button className="btn" onClick={onClose}>Cancelar</button>
+          <button className="btn" onClick={() => onClose()}>Cancelar</button>
           <button className="btn btn-primary" onClick={save}>
             {isEdit?'💾 Guardar Cambios':'✓ Crear Paciente'}
           </button>
@@ -446,7 +446,7 @@ function PatientForm({db,setDB,patient,onClose}){
   );
 }
 
-// ─── CONSULTA FORM ─────────────────────────────────────────────────────────────
+// ─── CONSULTA FORM (LÓGICA CORREGIDA) ───────────────────────────────────────────
 function ConsultaForm({patient,db,setDB,onClose}){
   const[form,setForm]=useState({
     id:Date.now().toString(),
@@ -461,31 +461,35 @@ function ConsultaForm({patient,db,setDB,onClose}){
   });
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
 
-  // Busca esta función dentro de PatientForm y reemplázala:
-function save(){
-  if(!form.apellido.trim()||!form.nombre.trim()){setErr('Apellido y nombre son requeridos');return}
-  const dup=db.patients.find(p=>
-    p.id!==form.id&&
-    p.apellido.trim().toLowerCase()===form.apellido.trim().toLowerCase()&&
-    p.nombre.trim().toLowerCase()===form.nombre.trim().toLowerCase()
-  );
-  if(dup){setErr(`Ya existe un paciente: ${dup.apellido}, ${dup.nombre}`);return}
+  function save(){
+    const newC = { ...form };
+    // Actualizamos la ficha del paciente con los datos de esta consulta
+    const updP = {
+      ...patient,
+      consultas: [...(patient.consultas || []), newC],
+      brand: form.brand,
+      batteryType: form.batteryType,
+      batteryPct: form.batteryPct,
+      batteryYears: form.batteryYears,
+      batteryMonths: form.batteryMonths
+    };
 
-  let newDB={...db};
-  const st=form.street?.trim();
-  const mo=form.mode?.trim();
-  if(st&&!newDB.streets.includes(st))newDB.streets=sortArr([...newDB.streets,st]);
-  if(mo&&!newDB.modes.includes(mo))newDB.modes=sortArr([...newDB.modes,mo]);
-
-  const saved={...form,apellido:form.apellido.trim(),nombre:form.nombre.trim()};
-  newDB.patients=isEdit
-    ?newDB.patients.map(p=>p.id===saved.id?saved:p)
-    :[...newDB.patients,saved];
-  setDB(newDB);
-  
-  // CAMBIO: Pasamos el ID al cerrar para saber a quién abrir la consulta
-  onClose(saved.id); 
-}
+    let newDB = { ...db, patients: db.patients.map(p => p.id === patient.id ? updP : p) };
+    
+    // Si no es consulta particular, sumamos al contador de la jornada actual
+    if (!form.particular && newDB.finances?.currentSession) {
+      newDB.finances = {
+        ...newDB.finances,
+        currentSession: {
+          ...newDB.finances.currentSession,
+          count: (newDB.finances.currentSession.count || 0) + 1
+        }
+      };
+    }
+    
+    setDB(newDB);
+    onClose();
+  }
 
   return(
     <div className="modal-overlay" style={{zIndex:300}}>
@@ -522,7 +526,7 @@ function save(){
         </div>
         <div className="modal-footer">
           <button className="btn" onClick={onClose}>Cancelar</button>
-          <button className="btn btn-primary" onClick={save}>Guardar Consulta</button>
+          <button className="btn btn-primary" onClick={save}>💾 Guardar Consulta</button>
         </div>
       </div>
     </div>
