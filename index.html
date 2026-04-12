@@ -115,45 +115,61 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 @media(max-width:640px){.grid2,.grid3,.grid4{grid-template-columns:1fr}.nav-logo{font-size:16px}.modal-lg{max-width:100%}}
 @media print {
-  /* Ocultar elementos de la app que no van en el papel */
+  /* Forzamos a que el cuerpo y el contenedor principal no tengan límite de altura */
+  html, body, .app, #root, .main { 
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+    background: white !important;
+  }
+
+  /* Ocultamos todo lo que no es la lista */
   .navbar, .nav-new, .search-wrap, .card, .modal-header, .modal-footer, .no-print, button, .alert { 
     display: none !important; 
   }
   
-  /* Resetear el fondo y los márgenes de la app */
-  body, .app, #root { 
-    background: white !important; 
-    padding: 0 !important; 
-    margin: 0 !important; 
-    height: auto !important;
-    min-height: auto !important;
-    overflow: visible !important;
-  }
-  
-  /* Hacer que el modal de impresión ocupe toda la página */
+  /* Quitamos el overlay oscuro y centramos la lista en el papel */
   .modal-overlay { 
     position: static !important; 
     background: none !important; 
     padding: 0 !important; 
     display: block !important; 
+    overflow: visible !important;
   }
+
   .modal { 
     box-shadow: none !important; 
     border: none !important; 
     max-width: 100% !important; 
     margin: 0 !important; 
+    position: static !important;
   }
+
+  /* ELIMINAMOS EL SCROLL DE LA TABLA: Esto quita la barra que ves en tu foto */
   .modal-body { 
     overflow: visible !important; 
     max-height: none !important; 
     padding: 0 !important; 
+    display: block !important;
+  }
+
+  .table-wrap, .print-area {
+    overflow: visible !important;
+    height: auto !important;
+    display: block !important;
+  }
+
+  table { 
+    width: 100% !important; 
+    page-break-inside: auto; 
+    border-collapse: collapse !important;
   }
   
-  /* Forzar a la tabla a no cortarse */
-  .print-area { display: block !important; width: 100% !important; }
-  table { width: 100% !important; page-break-inside: auto; }
-  tr { page-break-inside: avoid; page-break-after: auto; }
-  th { background-color: #f7fafc !important; -webkit-print-color-adjust: exact; }
+  tr { 
+    page-break-inside: avoid !important; 
+    page-break-after: auto !important; 
+  }
 }
 </style>
 </head>
@@ -1483,10 +1499,12 @@ function ConfigModule({db,setDB}){
 // ─── PRINT LIST ────────────────────────────────────────────────────────────────
 function PrintListModal({patients, onClose}){
   
-  // Función para convertir "DD/MM/YYYY" a "Mes Año"
+  // Función para convertir "DD/MM/YYYY" a "Mes Año" (Ej: Abril 2026)
   const formatMonthYear = (dateStr) => {
-    if (!dateStr || dateStr === 'Sin control') return 'Sin control';
-    const [d, m, y] = dateStr.split('/');
+    if (!dateStr || dateStr === 'Sin control' || dateStr.includes('Sin')) return 'Sin control';
+    const parts = dateStr.split('/');
+    if (parts.length < 3) return dateStr;
+    const [d, m, y] = parts;
     const date = new Date(y, m - 1, d);
     if (isNaN(date.getTime())) return dateStr;
     const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -1495,14 +1513,16 @@ function PrintListModal({patients, onClose}){
 
   return(
     <div className="modal-overlay no-print">
-      <div className="modal modal-lg" style={{maxHeight: '90vh', display: 'flex', flexDirection: 'column'}}>
+      {/* Eliminamos maxHeight y overflow para que el navegador no "saque una foto" fija */}
+      <div className="modal modal-lg print-modal-container">
         <div className="modal-header">
           <span className="modal-title">Lista Imprimible de Pacientes</span>
           <button className="btn btn-sm" onClick={onClose}>✕</button>
         </div>
         
-        <div className="modal-body" style={{flex: 1, overflowY: 'auto'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
+        {/* Cambiamos el estilo del body para que en impresión ignore el scroll */}
+        <div className="modal-body print-body-reset">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}} className="no-print">
             <span style={{fontSize:13,color:'#718096'}}>Total: {patients.length} pacientes · {todayStr()}</span>
             <button className="btn btn-primary btn-sm" onClick={()=>window.print()}>🖨 Imprimir</button>
           </div>
@@ -1511,26 +1531,26 @@ function PrintListModal({patients, onClose}){
             <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '12px'}}>
               <thead>
                 <tr style={{background: '#f7fafc', textAlign: 'left'}}>
-                  <th style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>#</th>
-                  <th style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>Apellido y Nombre</th>
-                  <th style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>Teléfono</th>
-                  <th style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>Marca</th>
-                  <th style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>Último Control</th>
+                  <th style={{borderBottom: '2px solid #e2e8f0', padding: '10px 8px', width: '40px'}}>#</th>
+                  <th style={{borderBottom: '2px solid #e2e8f0', padding: '10px 8px'}}>Apellido y Nombre</th>
+                  <th style={{borderBottom: '2px solid #e2e8f0', padding: '10px 8px'}}>Teléfono</th>
+                  <th style={{borderBottom: '2px solid #e2e8f0', padding: '10px 8px'}}>Marca</th>
+                  <th style={{borderBottom: '2px solid #e2e8f0', padding: '10px 8px'}}>Último Control</th>
                 </tr>
               </thead>
               <tbody>
                 {patients.map((p,i)=>(
-                  <tr key={p.id}>
-                    <td style={{borderBottom: '1px solid #e2e8f0', padding: '8px', color:'#a0aec0'}}>{i+1}</td>
-                    <td style={{borderBottom: '1px solid #e2e8f0', padding: '8px', fontWeight:600}}>{p.apellido}, {p.nombre}</td>
-                    <td style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>
-                      {p.telPrefix} {p.telNum}
-                      <span style={{fontSize: '11px', color: '#718096', marginLeft: '5px'}}>
-                        ({p.telOwner !== 'Paciente' ? `${p.telContact} - ${p.telOwner}` : 'Paciente'})
+                  <tr key={p.id} style={{pageBreakInside: 'avoid'}}>
+                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px', color:'#a0aec0'}}>{i+1}</td>
+                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px', fontWeight:600}}>{p.apellido}, {p.nombre}</td>
+                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>
+                      {p.telPrefix} {p.telNum} 
+                      <span style={{fontSize: '11px', color: '#718096', display: 'block'}}>
+                        {p.telOwner !== 'Paciente' ? `${p.telOwner}: ${p.telContact}` : '(Paciente)'}
                       </span>
                     </td>
-                    <td style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>{p.brand||'—'}</td>
-                    <td style={{borderBottom: '1px solid #e2e8f0', padding: '8px', fontWeight:500}}>{formatMonthYear(lastConsulta(p))}</td>
+                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>{p.brand||'—'}</td>
+                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px', fontWeight:500}}>{formatMonthYear(lastConsulta(p))}</td>
                   </tr>
                 ))}
               </tbody>
