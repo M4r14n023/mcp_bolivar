@@ -605,7 +605,7 @@ function AIReportGenerator({patient, onClose}) {
     set('nextControl', ctrl);
   }, [form.isERI, form.isEOL, form.arrPMT, form.arrModo, form.arrRuido, form.arrOtros, form.batteryType, form.batteryPct, form.batteryYears, form.batteryMonths, step]);
 
- // CAMBIO 2: Manejador de subida ahora acepta una LISTA de archivos
+ // ─── MANEJADOR DE SUBIDA (CORREGIDO: MODELO Y EXTRACCIÓN DE JSON) ─────────────
   async function handleFileUpload(files) {
     const arr = Array.from(files).filter(f => f.type === 'application/pdf');
     if(arr.length === 0) return;
@@ -633,14 +633,12 @@ function AIReportGenerator({patient, onClose}) {
       }
 
       setStatus('ia');
-      
-      // EL CAMBIO ESTÁ AQUÍ: Prompt mejorado, instrucciones específicas y ELIMINACIÓN DEL LÍMITE de caracteres
       const prompt = `Actúa como un técnico experto en marcapasos. Analiza TODO este texto extraído de un informe de dispositivo cardíaco (puede ser Biotronik, Medtronic, Abbott, etc.). 
       IMPORTANTE: La información suele estar muy dispersa. Revisa desde la primera hasta la última línea.
       - En informes Biotronik, los números de impedancia suelen estar varias líneas por debajo del texto "Imped. electrodos [Ω]". 
       - El modo (ej. DDDR, VVI) puede aparecer en cualquier página, búscalo cuidadosamente.
       
-      Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura:
+      Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura exacta:
       {
         "modo": "modo de estimulación (ej. DDD, VVI, DDDR, etc) o vacío",
         "impA": "valor numérico en Ohms o vacío",
@@ -652,18 +650,29 @@ function AIReportGenerator({patient, onClose}) {
       }
       
       Texto completo a analizar:
-      ${fullText}`; // <-- ACÁ SACAMOS EL SUBSTRING. AHORA MANDA TODO EL PDF.
+      ${fullText}`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      // ¡CORRECCIÓN CRÍTICA!: URL apuntando al modelo gemini-1.5-flash válido
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
+
+      if (!response.ok) {
+         throw new Error(`Error de conexión con IA: ${response.status}`);
+      }
 
       const data = await response.json();
       if(!data.candidates) throw new Error("Error en la respuesta de la IA.");
       
       let jsonText = data.candidates[0].content.parts[0].text;
-      jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      // PARCHE DE EXTRACCIÓN: Filtramos matemáticamente solo las llaves {}
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+          jsonText = jsonMatch[0];
+      }
+      
       const result = JSON.parse(jsonText);
 
       setForm(prev => ({
