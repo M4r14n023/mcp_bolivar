@@ -115,11 +115,45 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 @media(max-width:640px){.grid2,.grid3,.grid4{grid-template-columns:1fr}.nav-logo{font-size:16px}.modal-lg{max-width:100%}}
 @media print {
-  .navbar, .no-print { display: none !important; }
-  .main { padding: 0; max-width: 100%; }
-  .card { border: none; border-radius: 0; box-shadow: none; }
-  /* AGREGAR ESTA LÍNEA PARA ARREGLAR LA IMPRESIÓN DE LA TABLA: */
-  .table-wrap { overflow: visible !important; overflow-x: visible !important; }
+  /* Ocultar elementos de la app que no van en el papel */
+  .navbar, .nav-new, .search-wrap, .card, .modal-header, .modal-footer, .no-print, button, .alert { 
+    display: none !important; 
+  }
+  
+  /* Resetear el fondo y los márgenes de la app */
+  body, .app, #root { 
+    background: white !important; 
+    padding: 0 !important; 
+    margin: 0 !important; 
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+  
+  /* Hacer que el modal de impresión ocupe toda la página */
+  .modal-overlay { 
+    position: static !important; 
+    background: none !important; 
+    padding: 0 !important; 
+    display: block !important; 
+  }
+  .modal { 
+    box-shadow: none !important; 
+    border: none !important; 
+    max-width: 100% !important; 
+    margin: 0 !important; 
+  }
+  .modal-body { 
+    overflow: visible !important; 
+    max-height: none !important; 
+    padding: 0 !important; 
+  }
+  
+  /* Forzar a la tabla a no cortarse */
+  .print-area { display: block !important; width: 100% !important; }
+  table { width: 100% !important; page-break-inside: auto; }
+  tr { page-break-inside: avoid; page-break-after: auto; }
+  th { background-color: #f7fafc !important; -webkit-print-color-adjust: exact; }
 }
 </style>
 </head>
@@ -1447,41 +1481,64 @@ function ConfigModule({db,setDB}){
 }
 
 // ─── PRINT LIST ────────────────────────────────────────────────────────────────
-function PrintListModal({patients,onClose}){
+function PrintListModal({patients, onClose}){
+  
+  // Función para convertir "DD/MM/YYYY" a "Mes Año"
+  const formatMonthYear = (dateStr) => {
+    if (!dateStr || dateStr === 'Sin control') return 'Sin control';
+    const [d, m, y] = dateStr.split('/');
+    const date = new Date(y, m - 1, d);
+    if (isNaN(date.getTime())) return dateStr;
+    const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
   return(
-    <div className="modal-overlay">
-      <div className="modal modal-lg">
+    <div className="modal-overlay no-print">
+      <div className="modal modal-lg" style={{maxHeight: '90vh', display: 'flex', flexDirection: 'column'}}>
         <div className="modal-header">
           <span className="modal-title">Lista Imprimible de Pacientes</span>
           <button className="btn btn-sm" onClick={onClose}>✕</button>
         </div>
-        <div className="modal-body">
+        
+        <div className="modal-body" style={{flex: 1, overflowY: 'auto'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
             <span style={{fontSize:13,color:'#718096'}}>Total: {patients.length} pacientes · {todayStr()}</span>
             <button className="btn btn-primary btn-sm" onClick={()=>window.print()}>🖨 Imprimir</button>
           </div>
-          <div className="table-wrap">
-            <table>
+          
+          <div className="print-area">
+            <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '12px'}}>
               <thead>
-                <tr><th>#</th><th>Apellido y Nombre</th><th>Teléfono</th><th>Contacto</th><th>Último Control</th><th>Batería</th><th>Marca</th></tr>
+                <tr style={{background: '#f7fafc', textAlign: 'left'}}>
+                  <th style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>#</th>
+                  <th style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>Apellido y Nombre</th>
+                  <th style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>Teléfono</th>
+                  <th style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>Marca</th>
+                  <th style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>Último Control</th>
+                </tr>
               </thead>
               <tbody>
                 {patients.map((p,i)=>(
                   <tr key={p.id}>
-                    <td style={{color:'#a0aec0'}}>{i+1}</td>
-                    <td style={{fontWeight:500}}>{p.apellido}, {p.nombre}</td>
-                    <td>{p.telPrefix} {p.telNum}</td>
-                    <td style={{fontSize:12,color:'#718096'}}>{p.telOwner!=='Paciente'?`${p.telContact} (${p.telOwner})`:''}</td>
-                    <td>{lastConsulta(p)}</td>
-                    <td><span className={`badge ${batteryColor(p)}`}>{batteryDisplay(p)}</span></td>
-                    <td>{p.brand||'—'}</td>
+                    <td style={{borderBottom: '1px solid #e2e8f0', padding: '8px', color:'#a0aec0'}}>{i+1}</td>
+                    <td style={{borderBottom: '1px solid #e2e8f0', padding: '8px', fontWeight:600}}>{p.apellido}, {p.nombre}</td>
+                    <td style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>
+                      {p.telPrefix} {p.telNum}
+                      <span style={{fontSize: '11px', color: '#718096', marginLeft: '5px'}}>
+                        ({p.telOwner !== 'Paciente' ? `${p.telContact} - ${p.telOwner}` : 'Paciente'})
+                      </span>
+                    </td>
+                    <td style={{borderBottom: '1px solid #e2e8f0', padding: '8px'}}>{p.brand||'—'}</td>
+                    <td style={{borderBottom: '1px solid #e2e8f0', padding: '8px', fontWeight:500}}>{formatMonthYear(lastConsulta(p))}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
-        <div className="modal-footer">
+        
+        <div className="modal-footer no-print">
           <button className="btn" onClick={onClose}>Cerrar</button>
           <button className="btn btn-primary" onClick={()=>window.print()}>🖨 Imprimir</button>
         </div>
