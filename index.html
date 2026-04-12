@@ -114,7 +114,13 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 .spinner {border: 3px solid #f3f3f3; border-top: 3px solid #1a56db; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto;}
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 @media(max-width:640px){.grid2,.grid3,.grid4{grid-template-columns:1fr}.nav-logo{font-size:16px}.modal-lg{max-width:100%}}
-@media print{.navbar,.no-print{display:none!important}.main{padding:0;max-width:100%}.card{border:none;border-radius:0;box-shadow:none}}
+@media print {
+  .navbar, .no-print { display: none !important; }
+  .main { padding: 0; max-width: 100%; }
+  .card { border: none; border-radius: 0; box-shadow: none; }
+  /* AGREGAR ESTA LÍNEA PARA ARREGLAR LA IMPRESIÓN DE LA TABLA: */
+  .table-wrap { overflow: visible !important; overflow-x: visible !important; }
+}
 </style>
 </head>
 <body>
