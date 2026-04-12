@@ -533,20 +533,20 @@ function ConsultaForm({patient,db,setDB,onClose}){
   );
 }
 
-// ─── AI REPORT GENERATOR (NUEVO CON VISOR DE PDF Y MODO) ─────────────────────
+// ─── AI REPORT GENERATOR (ACTUALIZADO: MULTIPLES PDF + NOMBRE FORMATEADO) ─────
 function AIReportGenerator({patient, onClose}) {
   const [step, setStep] = useState(1); // 1: Upload, 2: Form, 3: Success
   const [status, setStatus] = useState('');
   const [dragging, setDragging] = useState(false);
-  const [pdfFile, setPdfFile] = useState(null);
   
-  // NUEVO: Estado para el visor del PDF
+  // CAMBIO 1: Estado para el visor del PDF ahora maneja MÚLTIPLES archivos
+  const [pdfFiles, setPdfFiles] = useState([]);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [showViewer, setShowViewer] = useState(false);
   
   // Formulario del Informe Clínico
   const [form, setForm] = useState({
-    modo: patient.mode || '', // NUEVO: Extraer Modo
+    modo: patient.mode || '', // Extraer Modo
     impA: '', impV: '', impShock: '',
     batteryType: patient.batteryType || 'percent',
     batteryPct: patient.batteryPct || '',
@@ -562,14 +562,14 @@ function AIReportGenerator({patient, onClose}) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const apiKey = getGeminiKey();
 
-  // Gestión de memoria para el PDF Url
+  // Gestión de memoria para el PDF Url (Muestra el primero de la lista)
   useEffect(() => {
-    if (pdfFile) {
-      const url = URL.createObjectURL(pdfFile);
+    if (pdfFiles.length > 0) {
+      const url = URL.createObjectURL(pdfFiles[0]);
       setPdfUrl(url);
       return () => URL.revokeObjectURL(url);
     }
-  }, [pdfFile]);
+  }, [pdfFiles]);
 
   // Lógica inteligente de conclusión clínica
   useEffect(() => {
@@ -597,7 +597,7 @@ function AIReportGenerator({patient, onClose}) {
       
       let isLow = false;
       if (form.batteryType === 'percent' && parseFloat(form.batteryPct) < 30) isLow = true;
-      if (form.batteryType === 'time' && (parseInt(form.batteryYears)||0) < 1 && (parseInt(form.batteryMonths)||0) < 12) isLow = true;
+      if (form.batteryType === 'time' && (parseInt(form.batteryYears)||0) < 1) isLow = true;
       if (isLow) ctrl = "3 meses";
     }
     
@@ -605,10 +605,14 @@ function AIReportGenerator({patient, onClose}) {
     set('nextControl', ctrl);
   }, [form.isERI, form.isEOL, form.arrPMT, form.arrModo, form.arrRuido, form.arrOtros, form.batteryType, form.batteryPct, form.batteryYears, form.batteryMonths, step]);
 
-  // Manejador de subida y lectura de PDF
-  async function handleFileUpload(f) {
-    if(!f || f.type !== 'application/pdf') { setStatus('Solo se aceptan archivos PDF.'); return; }
-    setPdfFile(f);
+  // CAMBIO 2: Manejador de subida ahora acepta una LISTA de archivos
+  async function handleFileUpload(files) {
+    const arr = Array.from(files).filter(f => f.type === 'application/pdf');
+    if(arr.length === 0) return;
+    
+    // Guardamos todos los archivos, pero usamos el primero para la IA
+    const mainFile = arr[0];
+    setPdfFiles(prev => [...prev, ...arr]);
     
     if(!apiKey) {
       if(window.confirm('No tienes configurada la API Key de Gemini. ¿Quieres llenar el formulario manualmente?')) {
@@ -619,7 +623,7 @@ function AIReportGenerator({patient, onClose}) {
 
     setStatus('leyendo');
     try {
-      const arrayBuffer = await f.arrayBuffer();
+      const arrayBuffer = await mainFile.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       let fullText = '';
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -629,7 +633,6 @@ function AIReportGenerator({patient, onClose}) {
       }
 
       setStatus('ia');
-      // PROMPT MEJORADO para encontrar el MODO
       const prompt = `Analiza este texto extraído de un informe de dispositivo cardíaco y devuelve ÚNICAMENTE un objeto JSON válido.
       Estructura requerida:
       {
@@ -657,7 +660,7 @@ function AIReportGenerator({patient, onClose}) {
 
       setForm(prev => ({
         ...prev,
-        modo: result.modo || prev.modo || '', // Carga el modo de la IA o mantiene el previo
+        modo: result.modo || prev.modo || '', 
         impA: result.impA || '', impV: result.impV || '', impShock: result.impShock || '',
         estimV: result.estimV || '',
         isERI: result.eri || false, isEOL: result.eol || false
@@ -694,7 +697,6 @@ function AIReportGenerator({patient, onClose}) {
       const age = calcAge(patient.dob);
       if(age) doc.text(`Edad: ${age} años`, 14, 58);
 
-      // Línea divisoria
       doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.5); doc.line(14, 65, 196, 65);
 
       // Parámetros Eléctricos
@@ -712,7 +714,6 @@ function AIReportGenerator({patient, onClose}) {
       
       doc.setFont('helvetica', 'normal'); doc.text(`Estimulación Ventricular:`, 14, y); doc.setFont('helvetica', 'bold'); doc.text(`${form.estimV ? form.estimV + '%' : '—'}`, 60, y); y+=10;
       
-      // Batería
       let batTxt = batteryDisplay({...patient, batteryType: form.batteryType, batteryPct: form.batteryPct, batteryYears: form.batteryYears, batteryMonths: form.batteryMonths});
       if(form.isEOL) batTxt = "EOL (Fin de Vida / Recambio Inmediato)"; else if(form.isERI) batTxt = "ERI (Indicación de Recambio)";
       
@@ -720,7 +721,6 @@ function AIReportGenerator({patient, onClose}) {
       doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 86, 219);
       doc.text(`Estado de Batería: ${batTxt}`, 16, y+1); y+=15;
 
-      // Conclusión
       doc.setTextColor(26, 32, 44);
       doc.setFillColor(240, 247, 255); doc.rect(14, y-5, 182, 35, 'F');
       doc.setFont('helvetica', 'bold'); doc.text('Conclusión Clínica:', 16, y); y+=7;
@@ -728,41 +728,38 @@ function AIReportGenerator({patient, onClose}) {
       const splitConc = doc.splitTextToSize(form.conclusion, 175);
       doc.text(splitConc, 16, y); y+=25;
 
-      // Próximo Control
       doc.setFont('helvetica', 'bold'); doc.text(`Próximo Control Sugerido: ${form.nextControl}`, 14, y); y+=15;
 
-      // Cursiva legal
       doc.setFontSize(9); doc.setFont('helvetica', 'italic'); doc.setTextColor(113, 128, 150);
       doc.text('Los valores de impedancia y sensibilidad se consideran normales según las', 14, y);
       doc.text('especificaciones técnicas del fabricante del dispositivo.', 14, y+5);
 
       const coverBuf = doc.output('arraybuffer');
+      const { PDFDocument } = window.PDFLib;
+      const mergedDoc = await PDFDocument.create();
+      const coverDoc = await PDFDocument.load(coverBuf);
+      const coverPages = await mergedDoc.copyPages(coverDoc, [0]);
+      mergedDoc.addPage(coverPages[0]);
 
-      // Fusión con el PDF original usando pdf-lib
-      if (pdfFile) {
-        const { PDFDocument } = window.PDFLib;
-        const extBuf = await pdfFile.arrayBuffer();
-        const mergedDoc = await PDFDocument.create();
-        
-        const coverDoc = await PDFDocument.load(coverBuf);
-        const coverPages = await mergedDoc.copyPages(coverDoc, [0]);
-        mergedDoc.addPage(coverPages[0]);
-
-        const extDoc = await PDFDocument.load(extBuf);
-        const extPages = await mergedDoc.copyPages(extDoc, [...Array(extDoc.getPageCount()).keys()]);
-        extPages.forEach(p => mergedDoc.addPage(p));
-
-        const mergedBytes = await mergedDoc.save();
-        const blob = new Blob([mergedBytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `Informe_${patient.apellido.replace(' ','_')}_${todayStr().replace(/\//g,'-')}.pdf`; a.click();
-      } else {
-        const blob = new Blob([coverBuf], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `Informe_${patient.apellido.replace(' ','_')}_${todayStr().replace(/\//g,'-')}.pdf`; a.click();
+      // CAMBIO 3: Fusión de TODOS los PDFs subidos
+      for (const file of pdfFiles) {
+        const fileBuf = await file.arrayBuffer();
+        const extDoc = await PDFDocument.load(fileBuf);
+        const pages = await mergedDoc.copyPages(extDoc, extDoc.getPageIndices());
+        pages.forEach(p => mergedDoc.addPage(p));
       }
+
+      const mergedBytes = await mergedDoc.save();
+      const blob = new Blob([mergedBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      // CAMBIO 4: NOMBRE DEL ARCHIVO "Apellido Nombre - Mes Año"
+      const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+      const now = new Date();
+      const finalFileName = `${patient.apellido} ${patient.nombre} - ${monthNames[now.getMonth()]} ${now.getFullYear()}.pdf`;
+
+      const a = document.createElement('a');
+      a.href = url; a.download = finalFileName; a.click();
 
       setStatus('¡Informe generado con éxito!');
       setTimeout(onClose, 2000);
@@ -786,17 +783,18 @@ function AIReportGenerator({patient, onClose}) {
 
           {step === 1 && (
             <div style={{textAlign:'center', padding:'2rem'}}>
+              {/* CAMBIO 5: Agregamos "multiple" al input y allow drop múltiple */}
               <div className={`file-drop${dragging?' over':''}`}
                 onClick={()=>document.getElementById('pdf-upload').click()}
                 onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)}
-                onDrop={e=>{e.preventDefault();setDragging(false);handleFileUpload(e.dataTransfer.files[0])}}
+                onDrop={e=>{e.preventDefault();setDragging(false);handleFileUpload(e.dataTransfer.files)}}
               >
                 <div className="file-drop-icon">📑</div>
                 {status === 'leyendo' ? <><div className="spinner"></div><p style={{marginTop:10}}>Extrayendo texto del PDF...</p></> :
                  status === 'ia' ? <><div className="spinner"></div><p style={{marginTop:10}}>Gemini está analizando los parámetros...</p></> :
-                 <><p style={{fontWeight:600}}>Carga Automática con IA</p><p style={{fontSize:12, color:'#718096', marginTop:4}}>Arrastrá el PDF del programador aquí (ej. Abbott, Medtronic)</p></>}
+                 <><p style={{fontWeight:600}}>Carga Automática con IA</p><p style={{fontSize:12, color:'#718096', marginTop:4}}>Arrastrá UNO o VARIOS PDFs aquí</p></>}
               </div>
-              <input id="pdf-upload" type="file" accept=".pdf" style={{display:'none'}} onChange={e=>handleFileUpload(e.target.files[0])}/>
+              <input id="pdf-upload" type="file" accept=".pdf" multiple style={{display:'none'}} onChange={e=>handleFileUpload(e.target.files)}/>
               
               <div className="divider">o</div>
               <button className="btn" onClick={()=>setStep(2)}>📝 Carga Manual (Sin PDF)</button>
@@ -806,20 +804,29 @@ function AIReportGenerator({patient, onClose}) {
 
           {step === 2 && (
             <div>
-              {/* NUEVO: CONTROLES DEL VISOR PDF */}
               <div className="section-title">
                 1. Revisión de Parámetros Extraídos
-                {pdfUrl && (
-                  <button className="btn btn-xs btn-info" onClick={() => setShowViewer(!showViewer)}>
-                    {showViewer ? '👁️ Ocultar PDF' : '👁️ Ver PDF Original'}
-                  </button>
-                )}
+                <div style={{display:'flex', gap:8}}>
+                  {/* CAMBIO 6: Botón para sumar MÁS pdfs desde la segunda pantalla */}
+                  {pdfFiles.length > 0 && (
+                    <button className="btn btn-xs btn-info" onClick={() => setShowViewer(!showViewer)}>
+                      {showViewer ? '🙈 Ocultar PDF' : '👁️ Ver PDF Original'}
+                    </button>
+                  )}
+                  <label className="btn btn-xs" style={{cursor:'pointer', margin:0, display:'inline-flex', alignItems:'center'}}>
+                    ➕ Adjuntar otro PDF 
+                    <input type="file" accept=".pdf" multiple style={{display:'none'}} onChange={e=>setPdfFiles(prev => [...prev, ...Array.from(e.target.files)])}/>
+                  </label>
+                </div>
               </div>
 
-              {/* NUEVO: VISOR DE PDF INCORPORADO */}
+              {/* Visor de PDF incorporado */}
               {showViewer && pdfUrl && (
                 <div style={{marginBottom: '1rem', border: '1px solid #cbd5e0', borderRadius: '8px', overflow: 'hidden'}}>
                   <iframe src={pdfUrl} width="100%" height="400px" style={{border: 'none', display: 'block'}}></iframe>
+                  <div style={{padding:'5px 10px', background:'#f1f5f9', fontSize:11, display:'flex', gap:10, overflowX:'auto'}}>
+                    <strong>Archivos a unir:</strong> {pdfFiles.map((f, i) => <span key={i} className="badge badge-gray">{f.name}</span>)}
+                  </div>
                 </div>
               )}
 
@@ -859,7 +866,7 @@ function AIReportGenerator({patient, onClose}) {
                 <input value={form.nextControl} onChange={e=>set('nextControl',e.target.value)}/>
               </div>
 
-              {status === 'generando' && <div className="alert alert-info">⏳ Generando informe y fusionando PDF original...</div>}
+              {status === 'generando' && <div className="alert alert-info">⏳ Generando informe y fusionando {pdfFiles.length} PDF(s)...</div>}
               {status === '¡Informe generado con éxito!' && <div className="alert alert-success">✓ {status}</div>}
             </div>
           )}
