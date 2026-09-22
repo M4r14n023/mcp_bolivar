@@ -130,7 +130,105 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-@media(max-width:640px){.grid2,.grid3,.grid4{grid-template-columns:1fr}.nav-logo{font-size:16px}.modal-lg{max-width:100%}}
+@media(max-width: 640px) {
+  /* Layout general y Navbar */
+  .main { padding: 0.75rem; }
+  .navbar { padding: 0 0.75rem; height: 52px; }
+  .nav-logo { font-size: 15px; }
+  .nav-logo img { width: 26px !important; height: 26px !important; }
+  .nav-btn { padding: 5px 9px; font-size: 11px; }
+  .nav-new { padding: 5px 10px; font-size: 11px; }
+
+  /* Barra de búsqueda y botones en vertical */
+  .search-wrap { width: 100% !important; min-width: 100% !important; }
+  .filter-bar-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  .filter-actions-mobile {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .filter-actions-mobile button { flex: 1; justify-content: center; }
+
+  /* Oculta la tabla ancha en el celular */
+  .desktop-table { display: none !important; }
+
+  /* Lista de tarjetas verticales para celular */
+  .mobile-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 0;
+  }
+  .mobile-patient-card {
+    background: #fff;
+    border-radius: 10px;
+    border: 0.5px solid #e2e8f0;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.1s;
+  }
+  .mobile-patient-card:active {
+    transform: scale(0.99);
+    border-color: #1a56db;
+  }
+  .mobile-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .mobile-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .mobile-card-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    font-size: 12px;
+    color: #4a5568;
+    background: #f8fafc;
+    padding: 8px;
+    border-radius: 6px;
+  }
+  .mobile-card-body div {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Modales a pantalla completa en celular */
+  .modal-overlay { padding: 0 !important; }
+  .modal {
+    max-width: 100% !important;
+    min-height: 100vh !important;
+    border-radius: 0 !important;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-body { flex: 1 !important; max-height: none !important; }
+  .grid2, .grid3, .grid4 { grid-template-columns: 1fr !important; }
+}
+
+/* En monitores de computadora ocultamos las tarjetas para que se vea la tabla tradicional */
+@media(min-width: 641px) {
+  .mobile-cards-list { display: none !important; }
+}
 @media print {
   html, body, .app, #root, .main { height: auto !important; min-height: auto !important; overflow: visible !important; position: static !important; background: white !important; }
   .navbar, .nav-new, .search-wrap, .card, .modal-header, .modal-footer, .no-print, button, .alert { display: none !important; }
@@ -1063,19 +1161,27 @@ function App(){
       <div className="main">
         {view==='patients'&&(
           <>
-            <div className="card">
-              <div style={{display:'flex',gap:'.75rem',alignItems:'center',flexWrap:'wrap'}}>
-                <div className="search-wrap" style={{flex:1,minWidth:220}}><span className="search-icon">🔍</span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por apellido o nombre..." autoFocus/></div>
-                <div style={{display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', border: '0.5px solid #e2e8f0'}}>
-                  <button onClick={() => setSortBy('name')} style={{padding: '4px 10px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'name' ? '#fff' : 'transparent', fontWeight: sortBy === 'name' ? '700' : '500', color: sortBy === 'name' ? '#1a56db' : '#64748b'}}>AZ</button>
-                  <button onClick={() => setSortBy('brand')} style={{padding: '4px 10px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'brand' ? '#fff' : 'transparent', fontWeight: sortBy === 'brand' ? '700' : '500', color: sortBy === 'brand' ? '#1a56db' : '#64748b'}}>🏷️</button>
-                  <button onClick={() => setSortBy('date')} style={{padding: '4px 10px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'date' ? '#fff' : 'transparent', fontWeight: sortBy === 'date' ? '700' : '500', color: sortBy === 'date' ? '#1a56db' : '#64748b'}}>📅</button>
+            <div className="card" style={{marginBottom: '0.75rem'}}>
+              <div className="filter-bar-mobile">
+                <div className="search-wrap" style={{flex:1,minWidth:220}}>
+                  <span className="search-icon">🔍</span>
+                  <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por apellido o nombre..." autoFocus/>
                 </div>
-                <div style={{display:'flex',gap:8,alignItems:'center'}}><span className="badge badge-blue" style={{fontSize:13,padding:'5px 12px'}}>{db.patients.length} pac.</span><button className="btn btn-sm btn-success" onClick={()=>setShowWaList(true)}>📱 WhatsApp</button><button className="btn btn-sm" onClick={()=>setShowPrint(true)}>🖨 Imprimir</button></div>
+                <div className="filter-actions-mobile">
+                  <div style={{display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '8px', border: '0.5px solid #e2e8f0'}}>
+                    <button onClick={() => setSortBy('name')} style={{padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'name' ? '#fff' : 'transparent', fontWeight: sortBy === 'name' ? '700' : '500', color: sortBy === 'name' ? '#1a56db' : '#64748b'}}>AZ</button>
+                    <button onClick={() => setSortBy('brand')} style={{padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'brand' ? '#fff' : 'transparent', fontWeight: sortBy === 'brand' ? '700' : '500', color: sortBy === 'brand' ? '#1a56db' : '#64748b'}}>🏷️</button>
+                    <button onClick={() => setSortBy('date')} style={{padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'date' ? '#fff' : 'transparent', fontWeight: sortBy === 'date' ? '700' : '500', color: sortBy === 'date' ? '#1a56db' : '#64748b'}}>📅</button>
+                  </div>
+                  <span className="badge badge-blue" style={{fontSize:11, padding:'4px 8px'}}>{filtered.length} pac.</span>
+                  <button className="btn btn-sm btn-success" onClick={()=>setShowWaList(true)}>📱 WhatsApp</button>
+                  <button className="btn btn-sm" onClick={()=>setShowPrint(true)}>🖨 Imprimir</button>
+                </div>
               </div>
             </div>
 
-            <div className="card" style={{padding:0,overflow:'hidden'}}>
+            {/* VISTA PARA PANTALLAS GRANDES (TABLA TRADICIONAL) */}
+            <div className="card desktop-table" style={{padding:0, overflow:'hidden'}}>
               <div className="table-wrap">
                 <table>
                   <thead><tr><th>Paciente</th><th>Edad</th><th>Ciudad</th><th>Dispositivo</th><th>Marca</th><th>Batería</th><th>Último Control</th></tr></thead>
@@ -1098,6 +1204,36 @@ function App(){
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* VISTA 100% MÓVIL (TARJETAS SIN SCROLL HORIZONTAL) */}
+            <div className="mobile-cards-list">
+              {filtered.map(p => (
+                <div key={p.id} className="mobile-patient-card" onClick={()=>setSelectedId(p.id)} style={{opacity: p.fallecido ? 0.6 : 1}}>
+                  <div className="mobile-card-header">
+                    <div className="mobile-card-title">
+                      <div style={{width:28, height:28, borderRadius:'50%', background: p.fallecido ? '#e2e8f0' : '#ebf4ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color: p.fallecido ? '#718096' : '#1a56db'}}>
+                        {p.apellido[0]}{p.nombre[0]}
+                      </div>
+                      <span style={{textDecoration: p.fallecido ? 'line-through' : 'none', color: p.fallecido ? '#718096' : '#1a202c'}}>
+                        {p.apellido}, {p.nombre}
+                      </span>
+                    </div>
+                    {p.fallecido ? (
+                      <span className="badge badge-red">Fallecido</span>
+                    ) : (
+                      <span className={`badge ${batteryColor(p)}`}>{batteryDisplay(p)}</span>
+                    )}
+                  </div>
+
+                  <div className="mobile-card-body">
+                    <div>🏷️ <strong>Marca:</strong> {p.brand || '—'}</div>
+                    <div>⚡ <strong>Tipo:</strong> {p.deviceType || '—'}</div>
+                    <div>📍 <strong>Ciudad:</strong> {p.city || '—'}</div>
+                    <div>📅 <strong>Control:</strong> {lastConsulta(p)}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </>
         )}
