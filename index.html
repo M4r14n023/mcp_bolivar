@@ -477,7 +477,8 @@ function PatientForm({db,setDB,patient,onClose}){
     city:'Bolívar',street:'',streetNum:'',
     deviceType:'Marcapasos',brand:'',mode:'',
     batteryType:'percent',batteryPct:'',batteryYears:'',batteryMonths:'',
-    obs:'',consultas:[],createdAt:new Date().toISOString()
+    obs:'',consultas:[],createdAt:new Date().toISOString(),
+    fallecido: false
   });
   const[err,setErr]=useState('');
   const age=useMemo(()=>calcAge(form.dob),[form.dob]);
@@ -503,7 +504,6 @@ function PatientForm({db,setDB,patient,onClose}){
       ?newDB.patients.map(p=>p.id===saved.id?saved:p)
       :[...newDB.patients,saved];
     setDB(newDB);
-    // IMPORTANTE: Aquí pasamos el ID para que App sepa a quién abrirle la consulta
     onClose(saved.id);
   }
 
@@ -516,7 +516,15 @@ function PatientForm({db,setDB,patient,onClose}){
         </div>
         <div className="modal-body">
           {err&&<div className="alert alert-error">⚠ {err}</div>}
-          <div className="section-title">Datos Personales</div>
+          
+          <div className="section-title">
+            Datos Personales
+            <label className="radio-label" style={{color: '#c53030', fontWeight: 'bold', margin: 0}}>
+              <input type="checkbox" checked={form.fallecido} onChange={e=>set('fallecido',e.target.checked)}/>
+              ✝️ Marcar Fallecido
+            </label>
+          </div>
+          
           <div className="grid2">
             <div className="form-group">
               <label>Apellido *</label>
@@ -529,93 +537,59 @@ function PatientForm({db,setDB,patient,onClose}){
           </div>
           <div style={{maxWidth:240}} className="form-group">
             <label>Fecha de Nacimiento</label>
-            <input value={form.dob}
-              onChange={e=>set('dob',formatDOB(e.target.value))}
-              placeholder="DD/MM/AAAA" maxLength={10}/>
-            {age!==null&&(
-              <div style={{fontSize:12,color:'#38a169',marginTop:4,fontWeight:600}}>✓ Edad: {age} años</div>
-            )}
+            <input value={form.dob} onChange={e=>set('dob',formatDOB(e.target.value))} placeholder="DD/MM/AAAA" maxLength={10}/>
+            {age!==null&&(<div style={{fontSize:12,color:'#38a169',marginTop:4,fontWeight:600}}>✓ Edad: {age} años</div>)}
           </div>
 
           <div className="section-title">Contacto</div>
           <div className="grid3">
-            <div className="form-group">
-              <label>Prefijo</label>
-              <input value={form.telPrefix} onChange={e=>set('telPrefix',e.target.value)} placeholder="2314"/>
-            </div>
-            <div className="form-group">
-              <label>Número</label>
-              <input value={form.telNum} onChange={e=>set('telNum',e.target.value)} placeholder="421234"/>
-            </div>
+            <div className="form-group"><label>Prefijo</label><input value={form.telPrefix} onChange={e=>set('telPrefix',e.target.value)} placeholder="2314"/></div>
+            <div className="form-group"><label>Número</label><input value={form.telNum} onChange={e=>set('telNum',e.target.value)} placeholder="421234"/></div>
             <div className="form-group">
               <label>Pertenece a</label>
               <select value={form.telOwner} onChange={e=>set('telOwner',e.target.value)}>
-                <option>Paciente</option>
-                <option>Hijos</option>
-                <option>Otros</option>
+                <option>Paciente</option><option>Hijos</option><option>Otros</option>
               </select>
             </div>
           </div>
           {(form.telOwner==='Hijos'||form.telOwner==='Otros')&&(
-            <div className="form-group">
-              <label>Nombre del contacto</label>
-              <input value={form.telContact} onChange={e=>set('telContact',e.target.value)} placeholder="Nombre del familiar"/>
-            </div>
+            <div className="form-group"><label>Nombre del contacto</label><input value={form.telContact} onChange={e=>set('telContact',e.target.value)} placeholder="Nombre del familiar"/></div>
           )}
 
           <div className="section-title">Dirección</div>
           <div className="grid3">
             <div className="form-group">
               <label>Ciudad</label>
-              <select value={form.city} onChange={e=>set('city',e.target.value)}>
-                {db.cities.map(c=><option key={c}>{c}</option>)}
-              </select>
+              <select value={form.city} onChange={e=>set('city',e.target.value)}>{db.cities.map(c=><option key={c}>{c}</option>)}</select>
             </div>
-            <div className="form-group">
-              <label>Calle</label>
-              <ACInput value={form.street||''} onChange={v=>set('street',v)}
-                list={db.streets} placeholder="Av. San Martín"/>
-            </div>
-            <div className="form-group">
-              <label>Número</label>
-              <input value={form.streetNum} onChange={e=>set('streetNum',e.target.value)} placeholder="1234"/>
-            </div>
+            <div className="form-group"><label>Calle</label><ACInput value={form.street||''} onChange={v=>set('street',v)} list={db.streets} placeholder="Av. San Martín"/></div>
+            <div className="form-group"><label>Número</label><input value={form.streetNum} onChange={e=>set('streetNum',e.target.value)} placeholder="1234"/></div>
           </div>
 
           <div className="section-title">Dispositivo</div>
           <div className="grid3">
             <div className="form-group">
               <label>Tipo</label>
-              <select value={form.deviceType} onChange={e=>set('deviceType',e.target.value)}>
-                {db.deviceTypes.map(t=><option key={t}>{t}</option>)}
-              </select>
+              <select value={form.deviceType} onChange={e=>set('deviceType',e.target.value)}>{db.deviceTypes.map(t=><option key={t}>{t}</option>)}</select>
             </div>
             <div className="form-group">
               <label>Marca</label>
               <select value={form.brand} onChange={e=>set('brand',e.target.value)}>
-                <option value="">— Seleccionar —</option>
-                {db.brands.map(b=><option key={b}>{b}</option>)}
+                <option value="">— Seleccionar —</option>{db.brands.map(b=><option key={b}>{b}</option>)}
               </select>
             </div>
-            <div className="form-group">
-              <label>Modo</label>
-              <ACInput value={form.mode||''} onChange={v=>set('mode',v)}
-                list={db.modes} placeholder="DDDR, VVI..."/>
-            </div>
+            <div className="form-group"><label>Modo</label><ACInput value={form.mode||''} onChange={v=>set('mode',v)} list={db.modes} placeholder="DDDR, VVI..."/></div>
           </div>
 
           <div className="section-title">Batería</div>
           <BatteryFields form={form} set={set}/>
 
           <div className="section-title" style={{marginTop:'1rem'}}>Observaciones</div>
-          <textarea rows={3} value={form.obs} onChange={e=>set('obs',e.target.value)}
-            placeholder="Notas clínicas adicionales..."/>
+          <textarea rows={3} value={form.obs} onChange={e=>set('obs',e.target.value)} placeholder="Notas clínicas adicionales..."/>
         </div>
         <div className="modal-footer">
           <button className="btn" onClick={() => onClose()}>Cancelar</button>
-          <button className="btn btn-primary" onClick={save}>
-            {isEdit?'💾 Guardar Cambios':'✓ Crear Paciente'}
-          </button>
+          <button className="btn btn-primary" onClick={save}>{isEdit?'💾 Guardar Cambios':'✓ Crear Paciente'}</button>
         </div>
       </div>
     </div>
@@ -1660,8 +1634,6 @@ function ConfigModule({db,setDB}){
 
 // ─── PRINT LIST ────────────────────────────────────────────────────────────────
 function PrintListModal({patients, onClose}){
-  
-  // Función para convertir "DD/MM/YYYY" a "Mes Año" (Ej: Abril 2026)
   const formatMonthYear = (dateStr) => {
     if (!dateStr || dateStr === 'Sin control' || dateStr.includes('Sin')) return 'Sin control';
     const parts = dateStr.split('/');
@@ -1675,14 +1647,12 @@ function PrintListModal({patients, onClose}){
 
   return(
     <div className="modal-overlay no-print">
-      {/* Eliminamos maxHeight y overflow para que el navegador no "saque una foto" fija */}
       <div className="modal modal-lg print-modal-container">
         <div className="modal-header">
           <span className="modal-title">Lista Imprimible de Pacientes</span>
           <button className="btn btn-sm" onClick={onClose}>✕</button>
         </div>
         
-        {/* Cambiamos el estilo del body para que en impresión ignore el scroll */}
         <div className="modal-body print-body-reset">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}} className="no-print">
             <span style={{fontSize:13,color:'#718096'}}>Total: {patients.length} pacientes · {todayStr()}</span>
@@ -1704,9 +1674,12 @@ function PrintListModal({patients, onClose}){
                 {patients.map((p,i)=>(
                   <tr key={p.id} style={{pageBreakInside: 'avoid'}}>
                     <td style={{borderBottom: '1px solid #edf2f7', padding: '8px', color:'#a0aec0'}}>{i+1}</td>
-                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px', fontWeight:600}}>{p.apellido}, {p.nombre}</td>
+                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px', fontWeight:600}}>
+                      <span style={{textDecoration: p.fallecido ? 'line-through' : 'none', color: p.fallecido ? '#a0aec0' : 'inherit'}}>{p.apellido}, {p.nombre}</span>
+                      {p.fallecido && <span style={{marginLeft: '6px', color: '#c53030', fontSize: '10px', fontWeight: 'bold'}}>FALLECIDO</span>}
+                    </td>
                     <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>
-                      {p.telPrefix} {p.telNum} 
+                      <span style={{textDecoration: p.fallecido ? 'line-through' : 'none', color: p.fallecido ? '#a0aec0' : 'inherit'}}>{p.telPrefix} {p.telNum}</span>
                       <span style={{fontSize: '11px', color: '#718096', display: 'block'}}>
                         {p.telOwner !== 'Paciente' ? `${p.telOwner}: ${p.telContact}` : '(Paciente)'}
                       </span>
@@ -1729,6 +1702,56 @@ function PrintListModal({patients, onClose}){
   );
 }
 
+
+// ─── WHATSAPP MOBILE LIST ──────────────────────────────────────────────────────
+function WhatsAppListModal({patients, onClose}) {
+  // Filtramos a los fallecidos y a los que no tienen número cargado
+  const waPatients = patients.filter(p => !p.fallecido && p.telNum);
+
+  const handleWaClick = (p) => {
+    // Limpiamos el número de espacios o guiones
+    let phone = `${p.telPrefix}${p.telNum}`.replace(/\D/g, '');
+    // Si tiene 10 o más dígitos y no empieza con 54, le agregamos el prefijo de Argentina
+    if (phone.length >= 10 && !phone.startsWith('54')) {
+      phone = `549${phone}`; 
+    }
+    // Si el teléfono es de un familiar, saludamos al familiar
+    const contactName = p.telOwner === 'Paciente' ? p.nombre : (p.telContact || 'Familiar');
+    const msg = encodeURIComponent(`Hola ${contactName}, nos comunicamos de MCP Bolívar para informarte sobre las próximas fechas de control de marcapasos.`);
+    
+    // Abrir WhatsApp Web o la App en el celular
+    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+  };
+
+  return (
+    <div className="modal-overlay no-print">
+      <div className="modal modal-sm" style={{maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: '#f0f2f5'}}>
+        <div className="modal-header" style={{background: '#075e54', color: 'white', borderRadius: '14px 14px 0 0'}}>
+          <span className="modal-title" style={{color: 'white'}}>📱 Contactos WhatsApp</span>
+          <button className="btn btn-sm" style={{background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)'}} onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body" style={{flex: 1, overflowY: 'auto', padding: 0}}>
+          {waPatients.length === 0 && <div style={{padding: '2rem', textAlign: 'center', color: '#718096'}}>No hay contactos válidos.</div>}
+          
+          {waPatients.map(p => (
+            <div key={p.id} onClick={() => handleWaClick(p)} style={{display: 'flex', padding: '15px', borderBottom: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', alignItems: 'center', justifyContent: 'space-between', transition: 'background 0.2s'}}>
+              <div>
+                <div style={{fontWeight: 700, fontSize: '15px', color: '#1a202c'}}>{p.apellido}, {p.nombre}</div>
+                <div style={{fontSize: '12px', color: '#718096', marginTop: '4px'}}>
+                  {p.telPrefix} {p.telNum} <span style={{opacity: 0.8}}>({p.telOwner})</span>
+                </div>
+              </div>
+              <div style={{background: '#25D366', color: 'white', padding: '8px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, boxShadow: '0 2px 4px rgba(37, 211, 102, 0.3)'}}>
+                Mensaje
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ──────────────────────────────────────────────────────────────────
 function App(){
   const { showConfirm } = useDialog();
@@ -1739,8 +1762,8 @@ function App(){
   const[selectedId,setSelectedId]=useState(null);
   const[editPatient,setEditPatient]=useState(null);
   const[showPrint,setShowPrint]=useState(false);
+  const[showWaList,setShowWaList]=useState(false); // NUEVO ESTADO PARA WHATSAPP
   
-  // Estado para el criterio de ordenamiento: 'name', 'brand' o 'date'
   const[sortBy, setSortBy] = useState('name'); 
   const[autoOpenConsulta, setAutoOpenConsulta] = useState(false);
 
@@ -1763,16 +1786,18 @@ function App(){
     }
   };
 
-  // Función auxiliar para convertir "DD/MM/YYYY" a un número comparable
   const parseDateForSort = (dateStr) => {
     if (!dateStr || dateStr === 'Sin control') return 0;
     const [d, m, y] = dateStr.split('/');
     return new Date(y, m - 1, d).getTime();
   };
 
-  // Lógica de ordenamiento actualizada con FECHA
   const sorted = useMemo(() => {
     return [...db.patients].sort((a, b) => {
+      // Priorizamos siempre que los fallecidos vayan al final de la lista
+      if (a.fallecido && !b.fallecido) return 1;
+      if (!a.fallecido && b.fallecido) return -1;
+
       if (sortBy === 'brand') {
         const brandA = a.brand || 'Z-Sin Marca';
         const brandB = b.brand || 'Z-Sin Marca';
@@ -1782,10 +1807,8 @@ function App(){
       else if (sortBy === 'date') {
         const dateA = parseDateForSort(lastConsulta(a));
         const dateB = parseDateForSort(lastConsulta(b));
-        // De más reciente a más antiguo
         if (dateA !== dateB) return dateB - dateA; 
       }
-      
       return (a.apellido + a.nombre).localeCompare(b.apellido + b.nombre, 'es');
     });
   }, [db.patients, sortBy]);
@@ -1804,6 +1827,7 @@ function App(){
     <div className="app">
       {showNew && <PatientForm db={db} setDB={setDB} onClose={handleAfterSave}/>}
       {editPatient && <PatientForm db={db} setDB={setDB} patient={editPatient} onClose={handleAfterSave}/>}
+      {showWaList && <WhatsAppListModal patients={sorted} onClose={()=>setShowWaList(false)}/>}
       
       {selectedId && !editPatient && (
         <PatientDetail 
@@ -1847,7 +1871,6 @@ function App(){
                     placeholder="Buscar por apellido o nombre..." autoFocus/>
                 </div>
                 
-                {/* BOTONES DE ORDENAMIENTO ACTUALIZADOS */}
                 <div style={{display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', border: '0.5px solid #e2e8f0'}}>
                   <button 
                     onClick={() => setSortBy('name')}
@@ -1885,6 +1908,7 @@ function App(){
                   <span className="badge badge-blue" style={{fontSize:13,padding:'5px 12px',fontWeight:700}}>
                     {db.patients.length} pacientes
                   </span>
+                  <button className="btn btn-sm btn-success" onClick={()=>setShowWaList(true)}>📱 WhatsApp</button>
                   <button className="btn btn-sm" onClick={()=>setShowPrint(true)}>🖨 Imprimir</button>
                 </div>
               </div>
@@ -1894,7 +1918,7 @@ function App(){
               <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '12px', alignItems: 'center'}}>
                 <span style={{fontWeight: 700, color: '#4a5568', textTransform: 'uppercase', fontSize: '10px'}}>📊 Resumen:</span>
                 {db.brands.map(b => {
-                  const count = db.patients.filter(p => p.brand === b).length;
+                  const count = db.patients.filter(p => p.brand === b && !p.fallecido).length;
                   return count > 0 ? (
                     <div key={b} style={{display:'flex', alignItems:'center', background: sortBy === 'brand' ? '#ebf4ff' : '#f1f5f9', padding:'2px 8px', borderRadius:'6px', border: sortBy === 'brand' ? '0.5px solid #1a56db' : '0.5px solid #e2e8f0'}}>
                       <span style={{color: '#64748b', marginRight: '5px'}}>{b}:</span>
@@ -1926,13 +1950,16 @@ function App(){
                     </thead>
                     <tbody>
                       {filtered.map(p=>(
-                        <tr key={p.id} className="patient-row" onClick={()=>setSelectedId(p.id)}>
+                        <tr key={p.id} className="patient-row" onClick={()=>setSelectedId(p.id)} style={{opacity: p.fallecido ? 0.6 : 1, background: p.fallecido ? '#f7fafc' : 'inherit'}}>
                           <td>
                             <div style={{display:'flex',alignItems:'center',gap:8}}>
-                              <div style={{width:30,height:30,borderRadius:'50%',background:'#ebf4ff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#1a56db',flexShrink:0}}>
+                              <div style={{width:30,height:30,borderRadius:'50%',background: p.fallecido ? '#e2e8f0' : '#ebf4ff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color: p.fallecido ? '#718096' : '#1a56db',flexShrink:0}}>
                                 {p.apellido[0]}{p.nombre[0]}
                               </div>
-                              <span style={{fontWeight:600}}>{p.apellido}, {p.nombre}</span>
+                              <span style={{fontWeight:600, textDecoration: p.fallecido ? 'line-through' : 'none', color: p.fallecido ? '#718096' : 'inherit'}}>
+                                {p.apellido}, {p.nombre}
+                              </span>
+                              {p.fallecido && <span className="badge badge-red" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}}>Fallecido</span>}
                             </div>
                           </td>
                           <td>{calcAge(p.dob)??'—'}</td>
