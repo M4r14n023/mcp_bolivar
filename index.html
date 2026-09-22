@@ -356,8 +356,8 @@ function LoginScreen({ onLogin }) {
 
   function handleLogin(e) {
     e.preventDefault();
-    if (pwd === 'mcpadmin') onLogin('admin');
-    else if (pwd === 'mcpsecre') onLogin('secretaria');
+    if (pwd === '2702') onLogin('admin');
+    else if (pwd === 'noe') onLogin('secretaria');
     else setErr('Clave incorrecta. Intenta nuevamente.');
   }
 
