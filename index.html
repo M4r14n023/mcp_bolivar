@@ -114,6 +114,57 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 .spinner {border: 3px solid #f3f3f3; border-top: 3px solid #1a56db; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto;}
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 @media(max-width:640px){.grid2,.grid3,.grid4{grid-template-columns:1fr}.nav-logo{font-size:16px}.modal-lg{max-width:100%}}
+
+/* MODAL DE CONFIRMACIÓN Y ALERTA PERSONALIZADO */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  backdrop-filter: blur(3px);
+  animation: fadeIn 0.15s ease-out;
+}
+.dialog-box {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 420px;
+  padding: 1.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: scaleUp 0.15s ease-out;
+}
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a202c;
+}
+.dialog-msg {
+  font-size: 14px;
+  color: #4a5568;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 0.5rem;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+
+
 @media print {
   /* Forzamos a que el cuerpo y el contenedor principal no tengan límite de altura */
   html, body, .app, #root, .main { 
@@ -179,7 +230,76 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
 const DB_KEY = 'mcpbolivar_v3';
-const APP_VERSION = "2.1.1"; 
+const APP_VERSION = "2.1.1";
+
+// ─── SISTEMA GLOBAL DE DIÁLOGOS (ALERT / CONFIRM PERSONALIZADOS) ───────────────
+const DialogContext = React.createContext(null);
+
+function DialogProvider({ children }) {
+  const [dialog, setDialog] = useState(null);
+
+  const showConfirm = useCallback(({ title = '¿Confirmar acción?', message, confirmText = 'Aceptar', cancelText = 'Cancelar', isDanger = false }) => {
+    return new Promise((resolve) => {
+      setDialog({
+        type: 'confirm',
+        title,
+        message,
+        confirmText,
+        cancelText,
+        isDanger,
+        onConfirm: () => { setDialog(null); resolve(true); },
+        onCancel: () => { setDialog(null); resolve(false); }
+      });
+    });
+  }, []);
+
+  const showAlert = useCallback(({ title = 'Atención', message, buttonText = 'Entendido' }) => {
+    return new Promise((resolve) => {
+      setDialog({
+        type: 'alert',
+        title,
+        message,
+        buttonText,
+        onConfirm: () => { setDialog(null); resolve(true); }
+      });
+    });
+  }, []);
+
+  return (
+    <DialogContext.Provider value={{ showConfirm, showAlert }}>
+      {children}
+      {dialog && (
+        <div className="dialog-overlay no-print">
+          <div className="dialog-box">
+            <div className="dialog-header">
+              <span>{dialog.isDanger ? '⚠️' : dialog.type === 'confirm' ? '❓' : 'ℹ️'}</span>
+              <span>{dialog.title}</span>
+            </div>
+            <div className="dialog-msg">{dialog.message}</div>
+            <div className="dialog-actions">
+              {dialog.type === 'confirm' && (
+                <button className="btn" onClick={dialog.onCancel}>
+                  {dialog.cancelText}
+                </button>
+              )}
+              <button 
+                className={`btn ${dialog.isDanger ? 'btn-danger' : 'btn-primary'}`} 
+                onClick={dialog.onConfirm}
+                autoFocus
+              >
+                {dialog.type === 'confirm' ? dialog.confirmText : dialog.buttonText}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </DialogContext.Provider>
+  );
+}
+
+function useDialog() {
+  return React.useContext(DialogContext);
+}
 
 // ─── FUNCIONES DE BASE DE DATOS Y ESTADO ─────────────────────────────────────────
 function loadDB(){try{const d=localStorage.getItem(DB_KEY);return d?JSON.parse(d):null}catch{return null}}
@@ -956,6 +1076,7 @@ function AIReportGenerator({patient, onClose}) {
 
 // ─── PATIENT DETAIL ────────────────────────────────────────────────────────────
 function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta}){
+  const { showConfirm } = useDialog();
   const[tab,setTab]=useState('info');
   const[showConsulta,setShowConsulta]=useState(false);
   const[showPDF,setShowPDF]=useState(false);
@@ -972,14 +1093,28 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta}){
   const age=calcAge(patient.dob);
   const cs=[...(patient.consultas||[])].reverse();
 
-  function deleteConsulta(cid){
-    if(!window.confirm('¿Eliminar esta consulta?'))return;
+  async function deleteConsulta(cid){
+    const ok = await showConfirm({
+      title: 'Eliminar Consulta',
+      message: '¿Estás seguro de que deseas eliminar este registro de consulta?',
+      confirmText: 'Eliminar',
+      isDanger: true
+    });
+    if(!ok) return;
+
     const updated={...patient,consultas:(patient.consultas||[]).filter(c=>c.id!==cid)};
     setDB({...db,patients:db.patients.map(p=>p.id===patient.id?updated:p)});
   }
 
-  function deletePatient(){
-    if(!window.confirm(`¿Eliminar a ${patient.apellido}, ${patient.nombre}? Esta acción no se puede deshacer.`))return;
+  async function deletePatient(){
+    const ok = await showConfirm({
+      title: 'Eliminar Paciente',
+      message: `¿Eliminar a ${patient.apellido}, ${patient.nombre}? Esta acción no se puede deshacer.`,
+      confirmText: 'Sí, eliminar',
+      isDanger: true
+    });
+    if(!ok) return;
+
     setDB({...db,patients:db.patients.filter(p=>p.id!==patient.id)});
     onClose();
   }
@@ -1104,15 +1239,22 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta}){
 
 // ─── FINANCE MODULE (DESGLOSE COMPLETO 80/20) ──────────────────────────────────
 function FinanceModule({db,setDB}){
+  const { showConfirm, showAlert } = useDialog();
   const[showOpen,setShowOpen]=useState(false);
   const[consultaVal,setConsultaVal]=useState('');
   const[alquilerVal,setAlquilerVal]=useState('');
   const fin=db.finances||{sessions:[],currentSession:null};
   const cs=fin.currentSession;
 
-  function start(){
+  async function start(){
     const cv=parseFloat(consultaVal);const av=parseFloat(alquilerVal);
-    if(isNaN(cv)||cv<=0||isNaN(av)||av<=0){alert('Ingresá valores válidos mayores a 0');return}
+    if(isNaN(cv)||cv<=0||isNaN(av)||av<=0){
+      await showAlert({
+        title: 'Valores incorrectos',
+        message: 'Ingresá valores numéricos válidos mayores a 0 para abrir la jornada.'
+      });
+      return;
+    }
     setDB({...db,finances:{...fin,currentSession:{
       id:Date.now().toString(),
       date:todayStr(),
@@ -1121,9 +1263,15 @@ function FinanceModule({db,setDB}){
     setShowOpen(false);setConsultaVal('');setAlquilerVal('');
   }
 
-  function close(){
+  async function close(){
     if(!cs)return;
-    if(!window.confirm('¿Cerrar la jornada actual?'))return;
+    const ok = await showConfirm({
+      title: 'Cerrar Jornada',
+      message: `¿Cerrar la jornada actual del ${cs.date} con un total de ${cs.count} pacientes atendidos?`,
+      confirmText: 'Cerrar Jornada',
+      cancelText: 'Cancelar'
+    });
+    if(!ok) return;
     
     const totalRecaudado = cs.consultaVal * cs.count;
     
@@ -1143,8 +1291,15 @@ function FinanceModule({db,setDB}){
     }});
   }
 
-  function deleteSession(sid){
-    if(!window.confirm('¿Eliminar este registro?'))return;
+  async function deleteSession(sid){
+    const ok = await showConfirm({
+      title: 'Eliminar Registro',
+      message: '¿Estás seguro de que deseas eliminar este registro de jornada?',
+      confirmText: 'Eliminar',
+      isDanger: true
+    });
+    if(!ok) return;
+
     setDB({...db,finances:{...fin,sessions:(fin.sessions||[]).filter(s=>s.id!==sid)}});
   }
 
@@ -1270,7 +1425,7 @@ function FinanceModule({db,setDB}){
                       <td style={{color:'#166534', fontWeight: '600'}}>${rMio.toLocaleString('es-AR')}</td>
                       <td style={{color:'#92400e'}}>${rSec.toLocaleString('es-AR')}</td>
                       <td style={{fontSize: '11px', color: '#64748b'}}>
-                        ${aMio.toLocaleString('es-AR')} / ${aSec.toLocaleString('es-AR')}
+                        ${aMio.toLocaleString('es-AR')} /${aSec.toLocaleString('es-AR')}
                       </td>
                       <td style={{fontWeight:700, color: '#1a56db'}}>${(rMio - aMio).toLocaleString('es-AR')}</td>
                       <td><button className="btn btn-xs btn-danger" onClick={()=>deleteSession(s.id)}>✕</button></td>
@@ -1288,6 +1443,7 @@ function FinanceModule({db,setDB}){
 
 // ─── CONFIG MODULE ─────────────────────────────────────────────────────────────
 function ConfigModule({db,setDB}){
+  const { showConfirm } = useDialog();
   const[newCity,setNewCity]=useState('');
   const[newBrand,setNewBrand]=useState('');
   const[newType,setNewType]=useState('');
@@ -1305,8 +1461,14 @@ function ConfigModule({db,setDB}){
     setter('');setMsg(`"${v}" agregado correctamente`);
   }
 
-  function remove(key,val){
-    if(!window.confirm(`¿Eliminar "${val}" de la lista?`))return;
+  async function remove(key,val){
+    const ok = await showConfirm({
+      title: 'Eliminar elemento',
+      message: `¿Deseas eliminar "${val}" de la lista?`,
+      confirmText: 'Eliminar',
+      isDanger: true
+    });
+    if(!ok) return;
     setDB({...db,[key]:db[key].filter(x=>x!==val)});
   }
 
@@ -1569,6 +1731,7 @@ function PrintListModal({patients, onClose}){
 
 // ─── MAIN APP ──────────────────────────────────────────────────────────────────
 function App(){
+  const { showConfirm } = useDialog();
   const[db,setDBRaw]=useState(initDB);
   const[view,setView]=useState('patients');
   const[search,setSearch]=useState('');
@@ -1583,12 +1746,20 @@ function App(){
 
   function setDB(d){setDBRaw(d);saveDB(d)}
 
-  const handleAfterSave = (id) => {
+  const handleAfterSave = async (id) => {
     setShowNew(false);
     setEditPatient(null);
-    if (id && window.confirm("¿Desea agregar una nueva consulta para este paciente ahora?")) {
-      setSelectedId(id);
-      setAutoOpenConsulta(true);
+    if (id) {
+      const ok = await showConfirm({
+        title: 'Paciente Guardado',
+        message: '¿Deseas agregar una nueva consulta para este paciente ahora?',
+        confirmText: '+ Nueva Consulta',
+        cancelText: 'Más tarde'
+      });
+      if (ok) {
+        setSelectedId(id);
+        setAutoOpenConsulta(true);
+      }
     }
   };
 
@@ -1850,7 +2021,11 @@ function App(){
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <DialogProvider>
+    <App />
+  </DialogProvider>
+);
 </script>
 </body>
 </html>
