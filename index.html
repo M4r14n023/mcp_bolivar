@@ -378,8 +378,19 @@ function LoginScreen({ onLogin }) {
 }
 
 function WhatsAppListModal({patients, onClose}) {
-  const [nextDate, setNextDate] = useState('');
-  const [price, setPrice] = useState('');
+  // Se recuperan los valores previamente guardados en el navegador
+  const [nextDate, setNextDate] = useState(() => localStorage.getItem('mcp_wa_next_date') || '');
+  const [price, setPrice] = useState(() => localStorage.getItem('mcp_wa_price') || '');
+
+  const handleDateChange = (val) => {
+    setNextDate(val);
+    localStorage.setItem('mcp_wa_next_date', val);
+  };
+
+  const handlePriceChange = (val) => {
+    setPrice(val);
+    localStorage.setItem('mcp_wa_price', val);
+  };
 
   const waPatients = patients.filter(p => !p.fallecido && p.telNum);
 
@@ -389,7 +400,7 @@ function WhatsAppListModal({patients, onClose}) {
       return;
     }
 
-    let phone = `${p.telPrefix||''}${p.telNum||''}`.replace(/\D/g, '');
+    let phone = `${p.telPrefix || ''}${p.telNum || ''}`.replace(/\D/g, '');
     if (phone.length >= 10 && !phone.startsWith('54')) {
       phone = `549${phone}`; 
     }
@@ -410,10 +421,22 @@ function WhatsAppListModal({patients, onClose}) {
           </div>
           
           <div style={{background: 'rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px'}}>
-            <div style={{fontSize: '12px', marginBottom: '8px', fontWeight: '500'}}>Datos para el mensaje automático:</div>
+            <div style={{fontSize: '12px', marginBottom: '8px', fontWeight: '500'}}>Datos para el mensaje automático (quedan guardados):</div>
             <div style={{display:'flex', gap:'8px'}}>
-              <input type="text" placeholder="Ej: Jueves 15 de Mayo" value={nextDate} onChange={e=>setNextDate(e.target.value)} style={{fontSize:'13px', padding:'8px', color:'#1a202c', flex: 1}}/>
-              <input type="number" placeholder="Valor ($)" value={price} onChange={e=>setPrice(e.target.value)} style={{fontSize:'13px', padding:'8px', width:'100px', color:'#1a202c'}}/>
+              <input 
+                type="text" 
+                placeholder="Ej: Jueves 15 de Mayo" 
+                value={nextDate} 
+                onChange={e => handleDateChange(e.target.value)} 
+                style={{fontSize:'13px', padding:'8px', color:'#1a202c', flex: 1}}
+              />
+              <input 
+                type="number" 
+                placeholder="Valor ($)" 
+                value={price} 
+                onChange={e => handlePriceChange(e.target.value)} 
+                style={{fontSize:'13px', padding:'8px', width:'100px', color:'#1a202c'}}
+              />
             </div>
           </div>
         </div>
