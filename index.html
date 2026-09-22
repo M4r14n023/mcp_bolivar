@@ -131,15 +131,50 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 @media(max-width: 640px) {
-  /* Layout general y Navbar */
+  /* Layout general */
   .main { padding: 0.75rem; }
-  .navbar { padding: 0 0.75rem; height: 52px; }
-  .nav-logo { font-size: 15px; }
-  .nav-logo img { width: 26px !important; height: 26px !important; }
-  .nav-btn { padding: 5px 9px; font-size: 11px; }
-  .nav-new { padding: 5px 10px; font-size: 11px; }
 
-  /* Barra de búsqueda y botones en vertical */
+  /* Navbar superior compacto para celular */
+  .navbar {
+    padding: 0 0.85rem;
+    height: 54px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-logo { font-size: 15px; flex: 1; }
+  .nav-logo img { width: 28px !important; height: 28px !important; }
+
+  /* Ocultar botones tradicionales horizontales en celular */
+  .desktop-nav-items { display: none !important; }
+
+  /* Menú desplegable móvil (hamburguesa) */
+  .mobile-menu-drawer {
+    position: fixed;
+    top: 54px;
+    left: 0;
+    right: 0;
+    background: #1648c0;
+    border-bottom: 2px solid rgba(255,255,255,0.15);
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem 1rem;
+    gap: 8px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+    z-index: 99;
+    animation: fadeIn 0.15s ease-out;
+  }
+  .mobile-menu-drawer button {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  /* Barra de búsqueda y filtros en vertical */
   .search-wrap { width: 100% !important; min-width: 100% !important; }
   .filter-bar-mobile {
     display: flex;
@@ -157,10 +192,10 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
   }
   .filter-actions-mobile button { flex: 1; justify-content: center; }
 
-  /* Oculta la tabla ancha en el celular */
+  /* Ocultar la tabla ancha en celular */
   .desktop-table { display: none !important; }
 
-  /* Lista de tarjetas verticales para celular */
+  /* Tarjetas móviles verticales */
   .mobile-cards-list {
     display: flex;
     flex-direction: column;
@@ -225,9 +260,10 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
   .grid2, .grid3, .grid4 { grid-template-columns: 1fr !important; }
 }
 
-/* En monitores de computadora ocultamos las tarjetas para que se vea la tabla tradicional */
+/* En monitores de computadora ocultamos las tarjetas móviles y el botón hamburguesa */
 @media(min-width: 641px) {
   .mobile-cards-list { display: none !important; }
+  .mobile-menu-btn, .mobile-menu-drawer { display: none !important; }
 }
 @media print {
   html, body, .app, #root, .main { height: auto !important; min-height: auto !important; overflow: visible !important; position: static !important; background: white !important; }
@@ -1062,6 +1098,7 @@ function PrintListModal({patients, onClose}){
 }
 
 function App(){
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { showConfirm, showAlert } = useDialog();
   const [role, setRole] = useState(() => localStorage.getItem('mcp_role') || null);
   const [db, setDBRaw] = useState(null);
@@ -1144,19 +1181,81 @@ function App(){
       {showPrint&&<PrintListModal patients={sorted} onClose={()=>setShowPrint(false)}/>}
 
       <nav className="navbar">
-        <div className="nav-logo"><img src="logo_mcp.png" alt="Logo" style={{width: 32, height: 32, borderRadius: '50%'}} /> MCP Bolívar</div>
+        <div className="nav-logo">
+          <img src="logo_mcp.png" alt="Logo" style={{width: 30, height: 30, borderRadius: '50%'}} /> 
+          MCP Bolívar
+        </div>
         
+        {/* ELEMENTOS VISIBLES EN ESCRITORIO */}
         {role === 'admin' && (
-          <>
+          <div className="desktop-nav-items" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
             <button className={`nav-btn ${view === 'patients' ? 'active' : ''}`} onClick={()=>setView('patients')}>👥 Pacientes</button>
             <button className={`nav-btn ${view === 'finances' ? 'active' : ''}`} onClick={()=>setView('finances')}>💼 Finanzas</button>
             <button className={`nav-btn ${view === 'config' ? 'active' : ''}`} onClick={()=>setView('config')}>⚙ Config</button>
             <button className="nav-new" onClick={()=>setShowNew(true)}><span>👤</span>+ Nuevo</button>
-          </>
+            <button className="nav-btn" style={{background: 'rgba(255,0,0,0.2)', marginLeft: '6px'}} onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}>Salir</button>
+          </div>
         )}
-        
-        <button className="nav-btn" style={{background: 'rgba(255,0,0,0.2)', marginLeft: 'auto'}} onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}>Salir</button>
+
+        {/* ACCIONES COMPACTAS PARA CELULAR */}
+        <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+          {role === 'admin' && (
+            <button className="nav-new" style={{padding: '5px 10px', fontSize: '12px'}} onClick={()=>setShowNew(true)}>
+              + Nuevo
+            </button>
+          )}
+
+          {role === 'admin' ? (
+            <button 
+              className="btn btn-sm mobile-menu-btn" 
+              style={{background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', padding: '6px 10px'}}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? '✕' : '☰'}
+            </button>
+          ) : (
+            <button 
+              className="btn btn-sm" 
+              style={{background: 'rgba(255,0,0,0.2)', color: '#fff', border: 'none', padding: '5px 10px'}}
+              onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}
+            >
+              Salir
+            </button>
+          )}
+        </div>
       </nav>
+
+      {/* MENÚ DESPLEGABLE MÓVIL (SOLO ADMIN) */}
+      {mobileMenuOpen && role === 'admin' && (
+        <div className="mobile-menu-drawer">
+          <button 
+            className={`nav-btn ${view === 'patients' ? 'active' : ''}`} 
+            onClick={() => { setView('patients'); setMobileMenuOpen(false); }}
+          >
+            👥 Pacientes
+          </button>
+          <button 
+            className={`nav-btn ${view === 'finances' ? 'active' : ''}`} 
+            onClick={() => { setView('finances'); setMobileMenuOpen(false); }}
+          >
+            💼 Finanzas
+          </button>
+          <button 
+            className={`nav-btn ${view === 'config' ? 'active' : ''}`} 
+            onClick={() => { setView('config'); setMobileMenuOpen(false); }}
+          >
+            ⚙ Configuración
+          </button>
+          <div style={{height: '1px', background: 'rgba(255,255,255,0.15)', margin: '4px 0'}}></div>
+          <button 
+            className="nav-btn" 
+            style={{background: 'rgba(239,68,68,0.25)', color: '#fca5a5'}}
+            onClick={() => { setRole(null); localStorage.removeItem('mcp_role'); }}
+          >
+            🚪 Cerrar Sesión
+          </button>
+        </div>
+      )}
 
       <div className="main">
         {view==='patients'&&(
