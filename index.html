@@ -130,6 +130,58 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
+/* ANIMACIÓN ECG / LATIDO CARDIACO */
+.ecg-loader-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+}
+.ecg-heart-icon {
+  font-size: 38px;
+  animation: heartPulse 1.1s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  filter: drop-shadow(0 4px 10px rgba(229, 62, 62, 0.35));
+}
+.ecg-svg-box {
+  width: 240px;
+  height: 60px;
+  overflow: hidden;
+}
+.ecg-line {
+  stroke: #1a56db;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  stroke-dasharray: 450;
+  stroke-dashoffset: 450;
+  animation: ecgSweep 1.6s ease-in-out infinite;
+}
+.ecg-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a56db;
+  letter-spacing: 0.5px;
+}
+
+@keyframes heartPulse {
+  0% { transform: scale(1); }
+  14% { transform: scale(1.22); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.15); }
+  70% { transform: scale(1); }
+}
+
+@keyframes ecgSweep {
+  0% { stroke-dashoffset: 450; opacity: 0.2; }
+  15% { opacity: 1; }
+  75% { stroke-dashoffset: 0; opacity: 1; }
+  90% { stroke-dashoffset: 0; opacity: 0; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+
 @media(max-width: 640px) {
   /* Layout general */
   .main { padding: 0.75rem; }
@@ -1167,7 +1219,25 @@ function App(){
   },[sorted,search]);
 
   if (!role) return <LoginScreen onLogin={(r) => { setRole(r); localStorage.setItem('mcp_role', r); }} />;
-  if (loading || !db) return <div className="login-wrap"><div className="spinner"></div><p style={{marginTop:20, color:'#1a56db'}}>Conectando a la nube...</p></div>;
+ if (loading || !db) {
+    return (
+      <div className="login-wrap">
+        <div className="ecg-loader-wrap">
+          <div className="ecg-heart-icon">❤️</div>
+          
+          <svg className="ecg-svg-box" viewBox="0 0 300 80">
+            {/* Trazado ECG continuo con complejo QRS marcado */}
+            <path
+              className="ecg-line"
+              d="M 0,40 L 40,40 L 55,40 L 65,33 L 75,40 L 95,40 L 105,52 L 120,8 L 135,68 L 145,40 L 165,40 L 180,28 L 200,40 L 300,40"
+            />
+          </svg>
+
+          <span className="ecg-label">Sincronizando MCP Bolívar...</span>
+        </div>
+      </div>
+    );
+  }
 
   return(
     <div className="app">
