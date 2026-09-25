@@ -659,7 +659,8 @@ function PatientForm({db,setDB,patient,onClose}){
     deviceType:'Marcapasos',brand:'',mode:'',
     batteryType:'percent',batteryPct:'',batteryYears:'',batteryMonths:'',
     obs:'',consultas:[],createdAt:new Date().toISOString(),
-    fallecido: false
+    fallecido: false,
+    particular: false // <-- AGREGADO
   });
   const[err,setErr]=useState('');
   const age=useMemo(()=>calcAge(form.dob),[form.dob]);
@@ -694,10 +695,16 @@ function PatientForm({db,setDB,patient,onClose}){
           
           <div className="section-title">
             Datos Personales
-            <label className="radio-label" style={{color: '#c53030', fontWeight: 'bold', margin: 0}}>
-              <input type="checkbox" checked={form.fallecido} onChange={e=>set('fallecido',e.target.checked)}/>
-              ✝️ Marcar Fallecido
-            </label>
+            <div style={{display: 'flex', gap: '15px', alignItems: 'center'}}>
+              <label className="radio-label" style={{color: '#2b6cb0', fontWeight: 'bold', margin: 0}}>
+                <input type="checkbox" checked={form.particular || false} onChange={e=>set('particular',e.target.checked)}/>
+                🏠 Particular (Domicilio)
+              </label>
+              <label className="radio-label" style={{color: '#c53030', fontWeight: 'bold', margin: 0}}>
+                <input type="checkbox" checked={form.fallecido || false} onChange={e=>set('fallecido',e.target.checked)}/>
+                ✝️ Fallecido
+              </label>
+            </div>
           </div>
           
           <div className="grid2">
@@ -1109,7 +1116,12 @@ function ConfigModule({db,setDB}){
   );
 }
 
-function PrintListModal({patients, onClose}){
+function PrintListModal({patients, onClose, onlyParticulares = false}){
+  // Si estamos en modo particulares, filtramos los que tengan el tilde y no hayan fallecido
+  const list = onlyParticulares 
+    ? patients.filter(p => p.particular && !p.fallecido)
+    : patients;
+
   const formatMonthYear = (dateStr) => {
     if (!dateStr || dateStr === 'Sin control' || dateStr.includes('Sin')) return 'Sin control';
     const parts = dateStr.split('/');
@@ -1124,26 +1136,73 @@ function PrintListModal({patients, onClose}){
   return(
     <div className="modal-overlay no-print">
       <div className="modal modal-lg print-modal-container">
-        <div className="modal-header"><span className="modal-title">Lista Imprimible</span><button className="btn btn-sm" onClick={onClose}>✕</button></div>
+        <div className="modal-header">
+          <span className="modal-title">
+            {onlyParticulares ? '🏠 Hoja de Ruta — Controles a Domicilio' : 'Lista Imprimible de Pacientes'}
+          </span>
+          <button className="btn btn-sm" onClick={onClose}>✕</button>
+        </div>
         <div className="modal-body print-body-reset">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}} className="no-print">
+            <span style={{fontSize:13,color:'#718096'}}>Total: {list.length} pacientes · {todayStr()}</span>
+            <button className="btn btn-primary btn-sm" onClick={()=>window.print()}>🖨 Imprimir</button>
+          </div>
+          
           <div className="print-area">
+            {onlyParticulares && (
+              <div style={{marginBottom: '15px', borderBottom: '2px solid #1a56db', paddingBottom: '8px'}}>
+                <h2 style={{fontSize: '18px', color: '#1a56db', margin: 0}}>MCP Bolívar — Controles a Domicilio (Particulares)</h2>
+                <span style={{fontSize: '12px', color: '#718096'}}>Fecha de salida: {todayStr()}</span>
+              </div>
+            )}
+
             <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '12px'}}>
-              <thead><tr style={{background: '#f7fafc', textAlign: 'left'}}><th style={{padding: '8px'}}>#</th><th style={{padding: '8px'}}>Paciente</th><th style={{padding: '8px'}}>Teléfono</th><th style={{padding: '8px'}}>Marca</th><th style={{padding: '8px'}}>Últ. Control</th></tr></thead>
+              <thead>
+                <tr style={{background: '#f7fafc', textAlign: 'left'}}>
+                  <th style={{padding: '8px', width: '30px'}}>#</th>
+                  <th style={{padding: '8px'}}>Apellido y Nombre</th>
+                  <th style={{padding: '8px'}}>Dirección</th>
+                  <th style={{padding: '8px'}}>Teléfono / Contacto</th>
+                  <th style={{padding: '8px'}}>Marca / Disp.</th>
+                  {!onlyParticulares && <th style={{padding: '8px'}}>Últ. Control</th>}
+                </tr>
+              </thead>
               <tbody>
-                {patients.map((p,i)=>(
+                {list.map((p,i)=>(
                   <tr key={p.id} style={{pageBreakInside: 'avoid'}}>
-                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>{i+1}</td>
-                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px', fontWeight:600}}><span style={{textDecoration: p.fallecido ? 'line-through' : 'none'}}>{p.apellido}, {p.nombre}</span>{p.fallecido && <span style={{marginLeft: '6px', color: '#c53030'}}>FALLECIDO</span>}</td>
-                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}><span style={{textDecoration: p.fallecido ? 'line-through' : 'none'}}>{p.telPrefix} {p.telNum}</span></td>
-                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>{p.brand||'—'}</td>
-                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>{formatMonthYear(lastConsulta(p))}</td>
+                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px', color: '#718096'}}>{i+1}</td>
+                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px', fontWeight:600}}>
+                      <span style={{textDecoration: p.fallecido ? 'line-through' : 'none'}}>{p.apellido}, {p.nombre}</span>
+                      {p.particular && <span className="badge badge-yellow" style={{marginLeft: 4, fontSize: '9px'}}>Particular</span>}
+                      {p.fallecido && <span style={{marginLeft: '6px', color: '#c53030', fontSize: '9px'}}>FALLECIDO</span>}
+                    </td>
+                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px', fontWeight: 500}}>
+                      {`${p.street || ''} ${p.streetNum || ''}`.trim() || '—'} 
+                      <span style={{fontSize: '11px', color: '#718096', display: 'block'}}>{p.city}</span>
+                    </td>
+                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>
+                      {p.telPrefix} {p.telNum}
+                      <span style={{fontSize: '11px', color: '#718096', display: 'block'}}>
+                        {p.telOwner !== 'Paciente' ? `${p.telOwner}: ${p.telContact}` : '(Paciente)'}
+                      </span>
+                    </td>
+                    <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>
+                      <strong>{p.brand || '—'}</strong>
+                      <span style={{fontSize: '11px', color: '#718096', display: 'block'}}>{p.deviceType}</span>
+                    </td>
+                    {!onlyParticulares && (
+                      <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>{formatMonthYear(lastConsulta(p))}</td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
-        <div className="modal-footer no-print"><button className="btn btn-primary" onClick={()=>window.print()}>🖨 Imprimir</button></div>
+        <div className="modal-footer no-print">
+          <button className="btn" onClick={onClose}>Cerrar</button>
+          <button className="btn btn-primary" onClick={()=>window.print()}>🖨 Imprimir</button>
+        </div>
       </div>
     </div>
   );
@@ -1165,6 +1224,7 @@ function App(){
   const[showWaList,setShowWaList]=useState(false);
   const[sortBy, setSortBy] = useState('name'); 
   const[autoOpenConsulta, setAutoOpenConsulta] = useState(false);
+  const[printParticularesOnly, setPrintParticularesOnly] = useState(false);
 
   useEffect(() => {
     if (!role) return;
@@ -1219,14 +1279,13 @@ function App(){
   },[sorted,search]);
 
   if (!role) return <LoginScreen onLogin={(r) => { setRole(r); localStorage.setItem('mcp_role', r); }} />;
- if (loading || !db) {
+  if (loading || !db) {
     return (
       <div className="login-wrap">
         <div className="ecg-loader-wrap">
           <div className="ecg-heart-icon">❤️</div>
           
           <svg className="ecg-svg-box" viewBox="0 0 300 80">
-            {/* Trazado ECG continuo con complejo QRS marcado */}
             <path
               className="ecg-line"
               d="M 0,40 L 40,40 L 55,40 L 65,33 L 75,40 L 95,40 L 105,52 L 120,8 L 135,68 L 145,40 L 165,40 L 180,28 L 200,40 L 300,40"
@@ -1248,7 +1307,15 @@ function App(){
       {selectedId && !editPatient && (
         <PatientDetail patientId={selectedId} db={db} setDB={setDB} role={role} onClose={() => {setSelectedId(null); setAutoOpenConsulta(false);}} onEdit={p => {setSelectedId(null); setEditPatient(p);}} initialOpenConsulta={autoOpenConsulta}/>
       )}
-      {showPrint&&<PrintListModal patients={sorted} onClose={()=>setShowPrint(false)}/>}
+      
+      {/* MODAL DE IMPRESIÓN CONECTADO CON EL MODO PARTICULARES */}
+      {showPrint && (
+        <PrintListModal 
+          patients={sorted} 
+          onlyParticulares={printParticularesOnly}
+          onClose={() => { setShowPrint(false); setPrintParticularesOnly(false); }}
+        />
+      )}
 
       <nav className="navbar">
         <div className="nav-logo">
@@ -1256,7 +1323,6 @@ function App(){
           MCP Bolívar
         </div>
         
-        {/* ELEMENTOS VISIBLES EN ESCRITORIO */}
         {role === 'admin' && (
           <div className="desktop-nav-items" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
             <button className={`nav-btn ${view === 'patients' ? 'active' : ''}`} onClick={()=>setView('patients')}>👥 Pacientes</button>
@@ -1267,7 +1333,6 @@ function App(){
           </div>
         )}
 
-        {/* ACCIONES COMPACTAS PARA CELULAR */}
         <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
           {role === 'admin' && (
             <button className="nav-new" style={{padding: '5px 10px', fontSize: '12px'}} onClick={()=>setShowNew(true)}>
@@ -1295,7 +1360,6 @@ function App(){
         </div>
       </nav>
 
-      {/* MENÚ DESPLEGABLE MÓVIL (SOLO ADMIN) */}
       {mobileMenuOpen && role === 'admin' && (
         <div className="mobile-menu-drawer">
           <button 
@@ -1344,12 +1408,13 @@ function App(){
                   </div>
                   <span className="badge badge-blue" style={{fontSize:11, padding:'4px 8px'}}>{filtered.length} pac.</span>
                   <button className="btn btn-sm btn-success" onClick={()=>setShowWaList(true)}>📱 WhatsApp</button>
-                  <button className="btn btn-sm" onClick={()=>setShowPrint(true)}>🖨 Imprimir</button>
+                  <button className="btn btn-sm btn-info" onClick={()=>{ setPrintParticularesOnly(true); setShowPrint(true); }}>🏠 Particulares</button>
+                  <button className="btn btn-sm" onClick={()=>{ setPrintParticularesOnly(false); setShowPrint(true); }}>🖨 Imprimir</button>
                 </div>
               </div>
             </div>
 
-            {/* VISTA PARA PANTALLAS GRANDES (TABLA TRADICIONAL) */}
+            {/* TABLA ESCRITORIO */}
             <div className="card desktop-table" style={{padding:0, overflow:'hidden'}}>
               <div className="table-wrap">
                 <table>
@@ -1361,6 +1426,8 @@ function App(){
                           <div style={{display:'flex',alignItems:'center',gap:8}}>
                             <div style={{width:30,height:30,borderRadius:'50%',background: p.fallecido ? '#e2e8f0' : '#ebf4ff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color: p.fallecido ? '#718096' : '#1a56db'}}>{p.apellido[0]}{p.nombre[0]}</div>
                             <span style={{fontWeight:600, textDecoration: p.fallecido ? 'line-through' : 'none', color: p.fallecido ? '#718096' : 'inherit'}}>{p.apellido}, {p.nombre}</span>
+                            {/* BADGES PARTICULARES Y FALLECIDO */}
+                            {p.particular && <span className="badge badge-yellow" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}}>Particular</span>}
                             {p.fallecido && <span className="badge badge-red" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}}>Fallecido</span>}
                           </div>
                         </td>
@@ -1375,7 +1442,7 @@ function App(){
               </div>
             </div>
 
-            {/* VISTA 100% MÓVIL (TARJETAS SIN SCROLL HORIZONTAL) */}
+            {/* TARJETAS MÓVILES */}
             <div className="mobile-cards-list">
               {filtered.map(p => (
                 <div key={p.id} className="mobile-patient-card" onClick={()=>setSelectedId(p.id)} style={{opacity: p.fallecido ? 0.6 : 1}}>
@@ -1388,11 +1455,14 @@ function App(){
                         {p.apellido}, {p.nombre}
                       </span>
                     </div>
-                    {p.fallecido ? (
-                      <span className="badge badge-red">Fallecido</span>
-                    ) : (
-                      <span className={`badge ${batteryColor(p)}`}>{batteryDisplay(p)}</span>
-                    )}
+                    <div>
+                      {p.particular && <span className="badge badge-yellow" style={{marginRight: 4, fontSize: '9px'}}>Part.</span>}
+                      {p.fallecido ? (
+                        <span className="badge badge-red">Fallecido</span>
+                      ) : (
+                        <span className={`badge ${batteryColor(p)}`}>{batteryDisplay(p)}</span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mobile-card-body">
@@ -1414,8 +1484,3 @@ function App(){
     </div>
   );
 }
-
-ReactDOM.createRoot(document.getElementById('root')).render(<DialogProvider><App/></DialogProvider>);
-</script>
-</body>
-</html>
