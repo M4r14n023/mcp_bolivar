@@ -1308,11 +1308,11 @@ function App(){
         <PatientDetail patientId={selectedId} db={db} setDB={setDB} role={role} onClose={() => {setSelectedId(null); setAutoOpenConsulta(false);}} onEdit={p => {setSelectedId(null); setEditPatient(p);}} initialOpenConsulta={autoOpenConsulta}/>
       )}
       
-      {/* MODAL DE IMPRESIÓN CONECTADO CON EL MODO PARTICULARES */}
+      {/* MODAL DE IMPRESIÓN CON FILTRO DE PARTICULARES */}
       {showPrint && (
         <PrintListModal 
           patients={sorted} 
-          onlyParticulares={printParticularesOnly}
+          onlyParticulares={printParticularesOnly} 
           onClose={() => { setShowPrint(false); setPrintParticularesOnly(false); }}
         />
       )}
@@ -1323,6 +1323,7 @@ function App(){
           MCP Bolívar
         </div>
         
+        {/* ELEMENTOS VISIBLES EN ESCRITORIO */}
         {role === 'admin' && (
           <div className="desktop-nav-items" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
             <button className={`nav-btn ${view === 'patients' ? 'active' : ''}`} onClick={()=>setView('patients')}>👥 Pacientes</button>
@@ -1333,6 +1334,7 @@ function App(){
           </div>
         )}
 
+        {/* ACCIONES COMPACTAS PARA CELULAR */}
         <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
           {role === 'admin' && (
             <button className="nav-new" style={{padding: '5px 10px', fontSize: '12px'}} onClick={()=>setShowNew(true)}>
@@ -1360,6 +1362,7 @@ function App(){
         </div>
       </nav>
 
+      {/* MENÚ DESPLEGABLE MÓVIL (SOLO ADMIN) */}
       {mobileMenuOpen && role === 'admin' && (
         <div className="mobile-menu-drawer">
           <button 
@@ -1484,3 +1487,12 @@ function App(){
     </div>
   );
 }
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <DialogProvider>
+    <App/>
+  </DialogProvider>
+);
+</script>
+</body>
+</html>
