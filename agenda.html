@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda y Confirmaciones — MCP Bolívar</title>
+<link rel="icon" type="image/jpeg" href="logo_mcp.png" />
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<!-- FIREBASE SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f0f4f8;color:#1a202c;min-height:100vh}
+.app{display:flex;flex-direction:column;min-height:100vh}
+.navbar{background:linear-gradient(135deg,#805ad5,#6b46c1);color:#fff;padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(107,70,193,.25)}
+.nav-title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px}
+.main{flex:1;padding:1rem;max-width:900px;margin:0 auto;width:100%}
+.card{background:#fff;border-radius:12px;border:0.5px solid #e2e8f0;padding:1rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+input[type=text]{padding:8px 12px;border:0.5px solid #cbd5e0;border-radius:8px;font-size:14px;outline:none}
+input[type=text]:focus{border-color:#805ad5}
+.btn{padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;border:none;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s}
+.btn-primary{background:#805ad5;color:#fff}
+.btn-primary:hover{background:#6b46c1}
+.btn-outline{background:#fff;border:1px solid #cbd5e0;color:#4a5568}
+.btn-outline:hover{background:#f7fafc}
+
+/* LISTA INTERACTIVA */
+.patient-item{display:flex;align-items:center;justify-content:space-between;padding:12px;background:#fff;border-radius:10px;border:0.5px solid #e2e8f0;margin-bottom:8px;gap:12px;transition:background 0.15s}
+.patient-item.is-confirmed{background:#f0fff4;border-color:#9ae6b4}
+.patient-name{font-weight:700;font-size:14px;color:#1a202c}
+.patient-tel{font-size:12px;color:#718096;margin-top:2px}
+.checks-group{display:flex;align-items:center;gap:15px}
+.custom-checkbox{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;cursor:pointer;user-select:none}
+.custom-checkbox input{width:18px;height:18px;cursor:pointer;accent-color:#805ad5}
+.custom-checkbox.confirmed-box input{accent-color:#38a169}
+
+/* SPINNER */
+.spinner{border:3px solid #f3f3f3;border-top:3px solid #805ad5;border-radius:50%;width:24px;height:24px;animation:spin 1s linear infinite;margin:2rem auto}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+
+/* FORMATO DE IMPRESIÓN OFICIAL */
+@media print{
+  html,body,.app,.main{background:#fff!important;height:auto!important;margin:0!important;padding:0!important}
+  .no-print,.navbar{display:none!important}
+  .card{border:none!important;box-shadow:none!important;padding:0!important;margin:0!important}
+  .print-header{display:block!important;margin-bottom:15px;border-bottom:2px solid #000;padding-bottom:10px}
+  .print-table{display:table!important;width:100%!important;border-collapse:collapse!important;font-size:12px}
+  .print-table th,.print-table td{border:1px solid #000!important;padding:8px 6px!important;text-align:left}
+  .print-table th{background:#f0f0f0!important;font-weight:bold}
+  .desktop-view{display:none!important}
+}
+@media screen{
+  .print-header,.print-table{display:none}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyARu0PMH_qW56Xur4Iri6z_wnKAncg5xnM",
+  authDomain: "mcp-bolivar-cloud.firebaseapp.com",
+  projectId: "mcp-bolivar-cloud",
+  storageBucket: "mcp-bolivar-cloud.firebasestorage.app",
+  messagingSenderId: "398348426481",
+  appId: "1:398348426481:web:cca4a558deac9c01df1d50"
+};
+
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const firestore = firebase.firestore();
+
+function AgendaApp() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
+  const [fechaConsulta, setFechaConsulta] = useState(() => localStorage.getItem('mcp_agenda_fecha') || '');
+
+  useEffect(() => {
+    const unsub = firestore.collection('mcp').doc('agenda').onSnapshot(doc => {
+      if (doc.exists) {
+        setData(doc.data().items || {});
+      } else {
+        setData({});
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const toggleCheck = (id, field) => {
+    const current = data[id]?.[field] || false;
+    const updated = { ...data, [id]: { ...data[id], [field]: !current } };
+    setData(updated);
+    firestore.collection('mcp').doc('agenda').update({
+      [`items.${id}.${field}`]: !current
+    }).catch(console.error);
+  };
+
+  const handleFechaChange = (val) => {
+    setFechaConsulta(val);
+    localStorage.setItem('mcp_agenda_fecha', val);
+  };
+
+  const list = useMemo(() => {
+    if (!data) return [];
+    const arr = Object.values(data);
+    const q = filter.trim().toLowerCase();
+    const filtered = q ? arr.filter(x => x.nombre.toLowerCase().includes(q)) : arr;
+    return filtered.sort((a,b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [data, filter]);
+
+  const stats = useMemo(() => {
+    const arr = Object.values(data || {});
+    return {
+      total: arr.length,
+      avisados: arr.filter(x => x.avisado).length,
+      confirmados: arr.filter(x => x.confirmado).length
+    };
+  }, [data]);
+
+  if (loading) return <div style={{padding:'3rem',textAlign:'center'}}><div className="spinner"></div><p>Cargando agenda sincronizada...</p></div>;
+
+  return (
+    <div className="app">
+      <nav className="navbar no-print">
+        <div className="nav-title">📋 Agenda y Confirmaciones</div>
+        <button className="btn btn-outline" style={{padding:'5px 10px',fontSize:'12px'}} onClick={()=>window.print()}>🖨 Imprimir</button>
+      </nav>
+
+      {/* PLANILLA PARA IMPRESIÓN (SOLO SALE AL IMPRIMIR) */}
+      <div className="print-header">
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+          <div>
+            <h1 style={{fontSize:'18px',margin:0}}>MCP BOLÍVAR — CONTROL DE MARCAPASOS</h1>
+            <p style={{fontSize:'13px',margin:'4px 0 0'}}>PLANILLA DE CONSULTA Y RECEPCIÓN</p>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <strong style={{fontSize:'14px'}}>Fecha de Consulta:</strong> {fechaConsulta || '__________________'}
+          </div>
+        </div>
+      </div>
+
+      <table className="print-table">
+        <thead>
+          <tr>
+            <th style={{width:'25px'}}>#</th>
+            <th>Paciente</th>
+            <th style={{width:'130px'}}>Teléfono</th>
+            <th style={{width:'60px',textAlign:'center'}}>Avisado</th>
+            <th style={{width:'75px',textAlign:'center'}}>Confirmado</th>
+            <th style={{width:'180px'}}>Pago / Observaciones (Anotar)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((p, idx) => (
+            <tr key={p.id}>
+              <td style={{textAlign:'center'}}>{idx + 1}</td>
+              <td style={{fontWeight:600}}>{p.nombre}</td>
+              <td>{p.tel} {p.owner}</td>
+              <td style={{textAlign:'center'}}>{p.avisado ? 'SÍ' : '—'}</td>
+              <td style={{textAlign:'center', fontWeight: p.confirmado ? 'bold' : 'normal'}}>{p.confirmado ? 'CONFIRMADO' : '—'}</td>
+              <td></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* VISTA EN PANTALLA (INTERACTIVA) */}
+      <div className="main no-print">
+        <div className="card">
+          <div style={{display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between'}}>
+            <div style={{flex:1,minWidth:'240px'}}>
+              <label style={{fontSize:'12px',fontWeight:700,color:'#718096',display:'block',marginBottom:'4px'}}>Fecha del día de consulta:</label>
+              <input 
+                type="text" 
+                placeholder="Ej: Jueves 15 de Octubre" 
+                value={fechaConsulta} 
+                onChange={e=>handleFechaChange(e.target.value)} 
+                style={{width:'100%'}}
+              />
+            </div>
+            <div style={{display:'flex',gap:'8px'}}>
+              <button className="btn btn-primary" onClick={()=>window.print()}>🖨 Imprimir Hoja de Recepción</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="card" style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
+          <div style={{display:'flex',gap:'8px'}}>
+            <span style={{background:'#ebf8ff',color:'#2b6cb0',padding:'4px 10px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Total: {stats.total}</span>
+            <span style={{background:'#fefcbf',color:'#744210',padding:'4px 10px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Avisados: {stats.avisados}</span>
+            <span style={{background:'#f0fff4',color:'#276749',padding:'4px 10px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Confirmados: {stats.confirmados}</span>
+          </div>
+          <input 
+            type="text" 
+            placeholder="Buscar por apellido..." 
+            value={filter} 
+            onChange={e=>setFilter(e.target.value)} 
+            style={{padding:'6px 10px',fontSize:'13px',minWidth:'200px'}}
+          />
+        </div>
+
+        {list.length === 0 ? (
+          <div className="card" style={{textAlign:'center',padding:'2rem',color:'#718096'}}>
+            No hay pacientes en la agenda. Presiona <strong>"Pasar a Agenda"</strong> en la app principal.
+          </div>
+        ) : (
+          list.map(p => (
+            <div key={p.id} className={`patient-item ${p.confirmado ? 'is-confirmed' : ''}`}>
+              <div>
+                <div className="patient-name">{p.nombre}</div>
+                <div className="patient-tel">📞 {p.tel || 'Sin teléfono'} {p.owner}</div>
+              </div>
+              <div className="checks-group">
+                <label className="custom-checkbox">
+                  <input 
+                    type="checkbox" 
+                    checked={p.avisado || false} 
+                    onChange={()=>toggleCheck(p.id, 'avisado')} 
+                  />
+                  <span>Avisado</span>
+                </label>
+                <label className="custom-checkbox confirmed-box">
+                  <input 
+                    type="checkbox" 
+                    checked={p.confirmado || false} 
+                    onChange={()=>toggleCheck(p.id, 'confirmado')} 
+                  />
+                  <span style={{color: p.confirmado ? '#276749' : 'inherit'}}>Confirmado</span>
+                </label>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<AgendaApp />);
+</script>
+</body>
+</html>

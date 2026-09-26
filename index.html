@@ -1412,6 +1412,42 @@ function App(){
                   <span className="badge badge-blue" style={{fontSize:11, padding:'4px 8px'}}>{filtered.length} pac.</span>
                   <button className="btn btn-sm btn-success" onClick={()=>setShowWaList(true)}>📱 WhatsApp</button>
                   <button className="btn btn-sm btn-info" onClick={()=>{ setPrintParticularesOnly(true); setShowPrint(true); }}>🏠 Particulares</button>
+                  {/* BOTÓN NUEVO: PASAR A AGENDA */}
+                  <button className="btn btn-sm" style={{background: '#805ad5', color: '#fff', border: 'none'}} onClick={async () => {
+                    const ok = await showConfirm({
+                      title: 'Exportar a Agenda',
+                      message: '¿Deseas exportar la lista de pacientes a la Agenda de Confirmaciones?'
+                    });
+                    if (!ok) return;
+                    
+                    try {
+                      const agendaDoc = await firestore.collection('mcp').doc('agenda').get();
+                      const existing = agendaDoc.exists ? (agendaDoc.data().items || {}) : {};
+                      
+                      const items = {};
+                      db.patients.filter(p => !p.fallecido).forEach(p => {
+                        items[p.id] = {
+                          id: p.id,
+                          nombre: `${p.apellido}, ${p.nombre}`,
+                          tel: `${p.telPrefix || ''} ${p.telNum || ''}`.trim(),
+                          owner: p.telOwner !== 'Paciente' ? `(${p.telOwner}: ${p.telContact})` : '',
+                          avisado: existing[p.id]?.avisado || false,
+                          confirmado: existing[p.id]?.confirmado || false
+                        };
+                      });
+
+                      await firestore.collection('mcp').doc('agenda').set({
+                        updatedAt: new Date().toISOString(),
+                        items
+                      }, { merge: true });
+
+                      showAlert({ title: 'Éxito', message: 'Lista exportada a la Agenda en la nube.' });
+                    } catch(err) {
+                      showAlert({ title: 'Error', message: 'No se pudo sincronizar la agenda: ' + err.message });
+                    }
+                  }}>
+                    📋 Pasar a Agenda
+                  </button>
                   <button className="btn btn-sm" onClick={()=>{ setPrintParticularesOnly(false); setShowPrint(true); }}>🖨 Imprimir</button>
                 </div>
               </div>
