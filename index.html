@@ -1322,34 +1322,35 @@ function App(){
           <img src="logo_mcp.png" alt="Logo" style={{width: 30, height: 30, borderRadius: '50%'}} /> 
           MCP Bolívar
         </div>
-        
-        {/* ELEMENTOS VISIBLES EN ESCRITORIO */}
-        {role === 'admin' && (
-          <div className="desktop-nav-items" style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-            <button className={`nav-btn ${view === 'patients' ? 'active' : ''}`} onClick={()=>setView('patients')}>👥 Pacientes</button>
-            <button className={`nav-btn ${view === 'finances' ? 'active' : ''}`} onClick={()=>setView('finances')}>💼 Finanzas</button>
-            <button className={`nav-btn ${view === 'config' ? 'active' : ''}`} onClick={()=>setView('config')}>⚙ Config</button>
-            <button className="nav-new" onClick={()=>setShowNew(true)}><span>👤</span>+ Nuevo</button>
-            <button 
+
+        {/* BOTÓN VISIBLE TANTO PARA ADMIN COMO PARA SECRETARIA */}
+        <button 
           className="btn btn-sm" 
-          style={{background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', marginLeft: '10px'}}
+          style={{background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', marginLeft: '10px'}}
           onClick={() => window.open('agenda.html', '_blank')}
         >
           📋 Agenda y Confirmaciones
         </button>
-            <button className="nav-btn" style={{background: 'rgba(255,0,0,0.2)', marginLeft: '6px'}} onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}>Salir</button>
+        
+        {/* ELEMENTOS EXCLUSIVOS DEL ADMINISTRADOR (PC) */}
+        {role === 'admin' && (
+          <div className="desktop-nav-items" style={{display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto'}}>
+            <button className={`nav-btn ${view === 'patients' ? 'active' : ''}`} onClick={()=>setView('patients')}>👥 Pacientes</button>
+            <button className={`nav-btn ${view === 'finances' ? 'active' : ''}`} onClick={()=>setView('finances')}>💼 Finanzas</button>
+            <button className={`nav-btn ${view === 'config' ? 'active' : ''}`} onClick={()=>setView('config')}>⚙ Config</button>
+            <button className="nav-new" onClick={()=>setShowNew(true)}><span>👤</span>+ Nuevo</button>
           </div>
         )}
 
-        {/* ACCIONES COMPACTAS PARA CELULAR */}
-        <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+        {/* ACCIONES PARA CELULAR Y SALIR */}
+        <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginLeft: role !== 'admin' ? 'auto' : '6px'}}>
           {role === 'admin' && (
             <button className="nav-new" style={{padding: '5px 10px', fontSize: '12px'}} onClick={()=>setShowNew(true)}>
               + Nuevo
             </button>
           )}
 
-          {role === 'admin' ? (
+          {role === 'admin' && (
             <button 
               className="btn btn-sm mobile-menu-btn" 
               style={{background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', padding: '6px 10px'}}
@@ -1357,18 +1358,18 @@ function App(){
             >
               {mobileMenuOpen ? '✕' : '☰'}
             </button>
-          ) : (
-            <button 
-              className="btn btn-sm" 
-              style={{background: 'rgba(255,0,0,0.2)', color: '#fff', border: 'none', padding: '5px 10px'}}
-              onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}
-            >
-              Salir
-            </button>
           )}
+
+          <button 
+            className="btn btn-sm" 
+            style={{background: 'rgba(255,0,0,0.2)', color: '#fff', border: 'none', padding: '5px 10px'}}
+            onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}
+          >
+            Salir
+          </button>
         </div>
       </nav>
-
+      
       {/* MENÚ DESPLEGABLE MÓVIL (SOLO ADMIN) */}
       {mobileMenuOpen && role === 'admin' && (
         <div className="mobile-menu-drawer">
