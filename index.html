@@ -1330,6 +1330,13 @@ function App(){
             <button className={`nav-btn ${view === 'finances' ? 'active' : ''}`} onClick={()=>setView('finances')}>💼 Finanzas</button>
             <button className={`nav-btn ${view === 'config' ? 'active' : ''}`} onClick={()=>setView('config')}>⚙ Config</button>
             <button className="nav-new" onClick={()=>setShowNew(true)}><span>👤</span>+ Nuevo</button>
+            <button 
+          className="btn btn-sm" 
+          style={{background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', marginLeft: '10px'}}
+          onClick={() => window.open('agenda.html', '_blank')}
+        >
+          📋 Agenda y Confirmaciones
+        </button>
             <button className="nav-btn" style={{background: 'rgba(255,0,0,0.2)', marginLeft: '6px'}} onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}>Salir</button>
           </div>
         )}
