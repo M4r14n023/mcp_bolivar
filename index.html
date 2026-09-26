@@ -1323,53 +1323,70 @@ function App(){
           MCP Bolívar
         </div>
 
-        {/* BOTÓN VISIBLE TANTO PARA ADMIN COMO PARA SECRETARIA */}
+        {/* ACCESO A LA AGENDA (VISIBLE PARA ADMIN Y SECRETARIA) */}
         <button 
           className="btn btn-sm" 
-          style={{background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', marginLeft: '10px'}}
+          style={{background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', marginLeft: '8px'}}
           onClick={() => window.open('agenda.html', '_blank')}
         >
           📋 Agenda y Confirmaciones
         </button>
+
+        {/* WHATSAPP EN NAVBAR: SOLO PARA SECRETARIA */}
+        {role === 'secre' && (
+          <button 
+            className="btn btn-sm btn-success" 
+            style={{marginLeft: '8px'}}
+            onClick={() => setShowWaList(true)}
+          >
+            📱 WhatsApp
+          </button>
+        )}
         
-        {/* ELEMENTOS EXCLUSIVOS DEL ADMINISTRADOR (PC) */}
+        {/* ELEMENTOS DE ESCRITORIO (SOLO ADMIN EN PC) */}
         {role === 'admin' && (
           <div className="desktop-nav-items" style={{display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto'}}>
             <button className={`nav-btn ${view === 'patients' ? 'active' : ''}`} onClick={()=>setView('patients')}>👥 Pacientes</button>
             <button className={`nav-btn ${view === 'finances' ? 'active' : ''}`} onClick={()=>setView('finances')}>💼 Finanzas</button>
             <button className={`nav-btn ${view === 'config' ? 'active' : ''}`} onClick={()=>setView('config')}>⚙ Config</button>
             <button className="nav-new" onClick={()=>setShowNew(true)}><span>👤</span>+ Nuevo</button>
+            <button className="nav-btn" style={{background: 'rgba(255,0,0,0.2)', marginLeft: '6px'}} onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}>Salir</button>
           </div>
         )}
 
-        {/* ACCIONES PARA CELULAR Y SALIR */}
+        {/* ACCIONES COMPACTAS PARA CELULAR */}
         <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginLeft: role !== 'admin' ? 'auto' : '6px'}}>
           {role === 'admin' && (
-            <button className="nav-new" style={{padding: '5px 10px', fontSize: '12px'}} onClick={()=>setShowNew(true)}>
-              + Nuevo
-            </button>
+            <>
+              {/* Botón "+ Nuevo" exclusivo móvil (en PC está oculto por CSS) */}
+              <button className="nav-new mobile-menu-btn" style={{padding: '5px 10px', fontSize: '12px'}} onClick={()=>setShowNew(true)}>
+                + Nuevo
+              </button>
+              
+              {/* Menú hamburguesa (Cerrar Sesión está adentro del desplegable) */}
+              <button 
+                className="btn btn-sm mobile-menu-btn" 
+                style={{background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', padding: '6px 10px'}}
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                {mobileMenuOpen ? '✕' : '☰'}
+              </button>
+            </>
           )}
 
-          {role === 'admin' && (
+          {/* Salir para la secretaria (no tiene hamburguesa) */}
+          {role === 'secre' && (
             <button 
-              className="btn btn-sm mobile-menu-btn" 
-              style={{background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', padding: '6px 10px'}}
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="btn btn-sm" 
+              style={{background: 'rgba(255,0,0,0.2)', color: '#fff', border: 'none', padding: '5px 10px'}}
+              onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}
             >
-              {mobileMenuOpen ? '✕' : '☰'}
+              Salir
             </button>
           )}
-
-          <button 
-            className="btn btn-sm" 
-            style={{background: 'rgba(255,0,0,0.2)', color: '#fff', border: 'none', padding: '5px 10px'}}
-            onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}
-          >
-            Salir
-          </button>
         </div>
       </nav>
-      
+
       {/* MENÚ DESPLEGABLE MÓVIL (SOLO ADMIN) */}
       {mobileMenuOpen && role === 'admin' && (
         <div className="mobile-menu-drawer">
@@ -1411,52 +1428,26 @@ function App(){
                   <span className="search-icon">🔍</span>
                   <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por apellido o nombre..." autoFocus/>
                 </div>
+                
                 <div className="filter-actions-mobile">
                   <div style={{display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '8px', border: '0.5px solid #e2e8f0'}}>
                     <button onClick={() => setSortBy('name')} style={{padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'name' ? '#fff' : 'transparent', fontWeight: sortBy === 'name' ? '700' : '500', color: sortBy === 'name' ? '#1a56db' : '#64748b'}}>AZ</button>
                     <button onClick={() => setSortBy('brand')} style={{padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'brand' ? '#fff' : 'transparent', fontWeight: sortBy === 'brand' ? '700' : '500', color: sortBy === 'brand' ? '#1a56db' : '#64748b'}}>🏷️</button>
                     <button onClick={() => setSortBy('date')} style={{padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'date' ? '#fff' : 'transparent', fontWeight: sortBy === 'date' ? '700' : '500', color: sortBy === 'date' ? '#1a56db' : '#64748b'}}>📅</button>
                   </div>
+                  
                   <span className="badge badge-blue" style={{fontSize:11, padding:'4px 8px'}}>{filtered.length} pac.</span>
+                  
+                  {/* WhatsApp visible para ambos */}
                   <button className="btn btn-sm btn-success" onClick={()=>setShowWaList(true)}>📱 WhatsApp</button>
-                  <button className="btn btn-sm btn-info" onClick={()=>{ setPrintParticularesOnly(true); setShowPrint(true); }}>🏠 Particulares</button>
-                  {/* BOTÓN NUEVO: PASAR A AGENDA */}
-                  <button className="btn btn-sm" style={{background: '#805ad5', color: '#fff', border: 'none'}} onClick={async () => {
-                    const ok = await showConfirm({
-                      title: 'Exportar a Agenda',
-                      message: '¿Deseas exportar la lista de pacientes a la Agenda de Confirmaciones?'
-                    });
-                    if (!ok) return;
-                    
-                    try {
-                      const agendaDoc = await firestore.collection('mcp').doc('agenda').get();
-                      const existing = agendaDoc.exists ? (agendaDoc.data().items || {}) : {};
-                      
-                      const items = {};
-                      db.patients.filter(p => !p.fallecido).forEach(p => {
-                        items[p.id] = {
-                          id: p.id,
-                          nombre: `${p.apellido}, ${p.nombre}`,
-                          tel: `${p.telPrefix || ''} ${p.telNum || ''}`.trim(),
-                          owner: p.telOwner !== 'Paciente' ? `(${p.telOwner}: ${p.telContact})` : '',
-                          avisado: existing[p.id]?.avisado || false,
-                          confirmado: existing[p.id]?.confirmado || false
-                        };
-                      });
-
-                      await firestore.collection('mcp').doc('agenda').set({
-                        updatedAt: new Date().toISOString(),
-                        items
-                      }, { merge: true });
-
-                      showAlert({ title: 'Éxito', message: 'Lista exportada a la Agenda en la nube.' });
-                    } catch(err) {
-                      showAlert({ title: 'Error', message: 'No se pudo sincronizar la agenda: ' + err.message });
-                    }
-                  }}>
-                    📋 Pasar a Agenda
-                  </button>
-                  <button className="btn btn-sm" onClick={()=>{ setPrintParticularesOnly(false); setShowPrint(true); }}>🖨 Imprimir</button>
+                  
+                  {/* Particulares e Imprimir exclusivos tuyos (Admin) */}
+                  {role === 'admin' && (
+                    <>
+                      <button className="btn btn-sm btn-info" onClick={()=>{ setPrintParticularesOnly(true); setShowPrint(true); }}>🏠 Particulares</button>
+                      <button className="btn btn-sm" onClick={()=>{ setPrintParticularesOnly(false); setShowPrint(true); }}>🖨 Imprimir</button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
