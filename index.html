@@ -1323,27 +1323,16 @@ function App(){
           MCP Bolívar
         </div>
 
-        {/* ACCESO A LA AGENDA (VISIBLE PARA ADMIN Y SECRETARIA) */}
+        {/* BOTÓN AGENDA VISIBLE TANTO PARA ADMIN COMO PARA SECRETARIA */}
         <button 
           className="btn btn-sm" 
-          style={{background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', marginLeft: '8px'}}
+          style={{background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', marginLeft: '10px'}}
           onClick={() => window.open('agenda.html', '_blank')}
         >
           📋 Agenda y Confirmaciones
         </button>
-
-        {/* WHATSAPP EN NAVBAR: SOLO PARA SECRETARIA */}
-        {role === 'secre' && (
-          <button 
-            className="btn btn-sm btn-success" 
-            style={{marginLeft: '8px'}}
-            onClick={() => setShowWaList(true)}
-          >
-            📱 WhatsApp
-          </button>
-        )}
         
-        {/* ELEMENTOS DE ESCRITORIO (SOLO ADMIN EN PC) */}
+        {/* ELEMENTOS EXCLUSIVOS DEL ADMINISTRADOR (ESCRITORIO PC) */}
         {role === 'admin' && (
           <div className="desktop-nav-items" style={{display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto'}}>
             <button className={`nav-btn ${view === 'patients' ? 'active' : ''}`} onClick={()=>setView('patients')}>👥 Pacientes</button>
@@ -1354,16 +1343,17 @@ function App(){
           </div>
         )}
 
-        {/* ACCIONES COMPACTAS PARA CELULAR */}
+        {/* ACCIONES PARA CELULAR Y SALIR (SECRETARIA) */}
         <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginLeft: role !== 'admin' ? 'auto' : '6px'}}>
+          
+          {/* BOTÓN +NUEVO Y HAMBURGUESA PARA CELULAR (SOLO ADMIN) */}
           {role === 'admin' && (
             <>
-              {/* Botón "+ Nuevo" exclusivo móvil (en PC está oculto por CSS) */}
+              {/* Le agregamos "mobile-menu-btn" para que se oculte en PC y no quede doble */}
               <button className="nav-new mobile-menu-btn" style={{padding: '5px 10px', fontSize: '12px'}} onClick={()=>setShowNew(true)}>
                 + Nuevo
               </button>
               
-              {/* Menú hamburguesa (Cerrar Sesión está adentro del desplegable) */}
               <button 
                 className="btn btn-sm mobile-menu-btn" 
                 style={{background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', padding: '6px 10px'}}
@@ -1374,7 +1364,7 @@ function App(){
             </>
           )}
 
-          {/* Salir para la secretaria (no tiene hamburguesa) */}
+          {/* BOTÓN SALIR SUELTO (SOLO SECRETARIA) */}
           {role === 'secre' && (
             <button 
               className="btn btn-sm" 
@@ -1409,6 +1399,7 @@ function App(){
             ⚙ Configuración
           </button>
           <div style={{height: '1px', background: 'rgba(255,255,255,0.15)', margin: '4px 0'}}></div>
+          {/* El administrador cierra sesión desde aquí en el celular */}
           <button 
             className="nav-btn" 
             style={{background: 'rgba(239,68,68,0.25)', color: '#fca5a5'}}
@@ -1428,20 +1419,18 @@ function App(){
                   <span className="search-icon">🔍</span>
                   <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por apellido o nombre..." autoFocus/>
                 </div>
-                
                 <div className="filter-actions-mobile">
                   <div style={{display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '8px', border: '0.5px solid #e2e8f0'}}>
                     <button onClick={() => setSortBy('name')} style={{padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'name' ? '#fff' : 'transparent', fontWeight: sortBy === 'name' ? '700' : '500', color: sortBy === 'name' ? '#1a56db' : '#64748b'}}>AZ</button>
                     <button onClick={() => setSortBy('brand')} style={{padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'brand' ? '#fff' : 'transparent', fontWeight: sortBy === 'brand' ? '700' : '500', color: sortBy === 'brand' ? '#1a56db' : '#64748b'}}>🏷️</button>
                     <button onClick={() => setSortBy('date')} style={{padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'date' ? '#fff' : 'transparent', fontWeight: sortBy === 'date' ? '700' : '500', color: sortBy === 'date' ? '#1a56db' : '#64748b'}}>📅</button>
                   </div>
-                  
                   <span className="badge badge-blue" style={{fontSize:11, padding:'4px 8px'}}>{filtered.length} pac.</span>
                   
-                  {/* WhatsApp visible para ambos */}
+                  {/* BOTÓN WHATSAPP VISIBLE PARA AMBOS */}
                   <button className="btn btn-sm btn-success" onClick={()=>setShowWaList(true)}>📱 WhatsApp</button>
                   
-                  {/* Particulares e Imprimir exclusivos tuyos (Admin) */}
+                  {/* BOTONES EXCLUSIVOS DEL ADMINISTRADOR */}
                   {role === 'admin' && (
                     <>
                       <button className="btn btn-sm btn-info" onClick={()=>{ setPrintParticularesOnly(true); setShowPrint(true); }}>🏠 Particulares</button>
