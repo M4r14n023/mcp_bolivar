@@ -28,14 +28,18 @@ input:focus{border-color:#805ad5}
 .btn-primary:hover{background:#6b46c1}
 .btn-outline{background:#fff;border:1px solid #cbd5e0;color:#4a5568}
 .btn-outline:hover{background:#f7fafc}
+.btn-particulares{background:#ecc94b;color:#744210;font-weight:700}
+.btn-particulares:hover{background:#d69e2e;color:#fff}
 
 /* LISTA DE PACIENTES */
 .patient-item{display:flex;align-items:center;justify-content:space-between;padding:12px;background:#fff;border-radius:10px;border:0.5px solid #e2e8f0;margin-bottom:8px;gap:12px;transition:all 0.15s}
 .patient-item.is-confirmed{background:#f0fff4;border-color:#9ae6b4}
 .patient-item.is-noviene{background:#fff5f5;border-color:#feb2b2;opacity:0.65}
-.patient-name{font-weight:700;font-size:14px;color:#1a202c;display:flex;align-items:center;gap:8px}
+.patient-name{font-weight:700;font-size:14px;color:#1a202c;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .patient-tel{font-size:12px;color:#718096;margin-top:2px}
+.patient-addr{font-size:11px;color:#4a5568;margin-top:2px}
 .badge-time{background:#276749;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
+.badge-part{background:#fefcbf;color:#744210;padding:2px 7px;border-radius:12px;font-size:10px;font-weight:700;border:0.5px solid #ecc94b}
 
 /* SELECTOR DE ESTADOS */
 .status-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -45,9 +49,10 @@ input:focus{border-color:#805ad5}
 .chip-confirmado.active{background:#276749;color:#fff;border-color:#276749}
 .chip-noviene.active{background:#e53e3e;color:#fff;border-color:#e53e3e}
 
-/* MODAL DE HORARIO */
+/* MODALES */
 .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(2px)}
-.modal-box{background:#fff;border-radius:14px;width:100%;max-width:360px;padding:1.25rem;box-shadow:0 20px 40px rgba(0,0,0,0.2)}
+.modal-box{background:#fff;border-radius:14px;width:100%;max-width:380px;padding:1.25rem;box-shadow:0 20px 40px rgba(0,0,0,0.2)}
+.modal-lg{max-width:600px}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;font-weight:700;font-size:15px}
 .modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem}
 
@@ -61,7 +66,7 @@ input:focus{border-color:#805ad5}
 @keyframes heartPulse{0%{transform:scale(1)}14%{transform:scale(1.22)}28%{transform:scale(1)}42%{transform:scale(1.15)}70%{transform:scale(1)}}
 @keyframes ecgSweep{0%{stroke-dashoffset:450;opacity:0.2}15%{opacity:1}75%{stroke-dashoffset:0;opacity:1}90%{stroke-dashoffset:0;opacity:0}100%{stroke-dashoffset:0;opacity:0}}
 
-/* IMPRESIÓN */
+/* IMPRESIÓN (SOLO CONSULTORIO) */
 @media print{
   html,body,.app,.main{background:#fff!important;height:auto!important;margin:0!important;padding:0!important}
   .no-print,.navbar{display:none!important}
@@ -102,21 +107,21 @@ function AgendaApp() {
   const [filter, setFilter] = useState('');
   const [fechaConsulta, setFechaConsulta] = useState(() => localStorage.getItem('mcp_agenda_fecha') || '');
 
-  // Estado para el modal de asignación de horario
+  // Modales
   const [timeModalPatient, setTimeModalPatient] = useState(null);
   const [inputTime, setInputTime] = useState('');
+  const [showParticularesModal, setShowParticularesModal] = useState(false);
 
   useEffect(() => {
-    // 1. Escuchar pacientes principales excluyendo fallecidos Y particulares
+    // 1. Escuchamos TODOS los pacientes no fallecidos (incluyendo particulares)
     const unsubMain = firestore.collection('mcp').doc('main').onSnapshot(doc => {
       if (doc.exists) {
         const raw = doc.data().patients || [];
-        // Filtramos para dejar solo los de consultorio (no fallecidos, no particulares)
-        setPatients(raw.filter(p => !p.fallecido && !p.particular));
+        setPatients(raw.filter(p => !p.fallecido));
       }
     });
 
-    // 2. Escuchar la agenda en tiempo real
+    // 2. Escuchamos los estados en tiempo real
     const unsubAgenda = firestore.collection('mcp').doc('agenda').onSnapshot(doc => {
       if (doc.exists) {
         setAgendaState(doc.data().items || {});
@@ -142,11 +147,9 @@ function AgendaApp() {
 
     if (field === 'confirmado') {
       if (!current) {
-        // Al marcar confirmado, abrimos modal para pedir horario
         setInputTime(agendaState[patient.id]?.time || '');
         setTimeModalPatient(patient);
       } else {
-        // Al desmarcar confirmado, removemos el horario
         savePatientState(patient.id, { confirmado: false, time: '' });
       }
     } else if (field === 'noViene') {
@@ -176,15 +179,18 @@ function AgendaApp() {
     localStorage.setItem('mcp_agenda_fecha', val);
   };
 
-  // Pacientes enriquecidos
+  // Enriquecemos la lista completa
   const mergedList = useMemo(() => {
     return patients.map(p => {
       const st = agendaState[p.id] || {};
+      const direccion = `${p.street || ''} ${p.streetNum || ''}`.trim();
       return {
         id: p.id,
         nombre: `${p.apellido}, ${p.nombre}`,
         tel: `${p.telPrefix || ''} ${p.telNum || ''}`.trim(),
         owner: p.telOwner !== 'Paciente' ? `(${p.telOwner}: ${p.telContact})` : '',
+        address: direccion ? `${direccion} (${p.city || 'Bolívar'})` : (p.city || '—'),
+        particular: !!p.particular,
         avisado: !!st.avisado,
         confirmado: !!st.confirmado,
         noViene: !!st.noViene,
@@ -193,16 +199,17 @@ function AgendaApp() {
     }).sort((a,b) => a.nombre.localeCompare(b.nombre, 'es'));
   }, [patients, agendaState]);
 
+  // Filtro de búsqueda en pantalla
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return mergedList;
     return mergedList.filter(x => x.nombre.toLowerCase().includes(q));
   }, [mergedList, filter]);
 
-  // 1. Confirmados ordenados cronológicamente por horario
-  const confirmados = useMemo(() => {
+  // Particulares Confirmados (para el modal y hoja de ruta de domicilios)
+  const particularesConfirmados = useMemo(() => {
     return mergedList
-      .filter(x => x.confirmado && !x.noViene)
+      .filter(x => x.particular && x.confirmado && !x.noViene)
       .sort((a, b) => {
         if (!a.time && !b.time) return a.nombre.localeCompare(b.nombre, 'es');
         if (!a.time) return 1;
@@ -211,19 +218,30 @@ function AgendaApp() {
       });
   }, [mergedList]);
 
-  // 2. Avisados sin confirmar (sin horario, ordenados alfabéticamente)
-  const pendientes = useMemo(() => {
+  // LISTAS EXCLUSIVAS PARA LA IMPRESIÓN (SOLO CONSULTORIO: !x.particular)
+  const confirmadosConsultorio = useMemo(() => {
     return mergedList
-      .filter(x => x.avisado && !x.confirmado && !x.noViene)
+      .filter(x => !x.particular && x.confirmado && !x.noViene)
+      .sort((a, b) => {
+        if (!a.time && !b.time) return a.nombre.localeCompare(b.nombre, 'es');
+        if (!a.time) return 1;
+        if (!b.time) return -1;
+        return a.time.localeCompare(b.time);
+      });
+  }, [mergedList]);
+
+  const pendientesConsultorio = useMemo(() => {
+    return mergedList
+      .filter(x => !x.particular && x.avisado && !x.confirmado && !x.noViene)
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   }, [mergedList]);
 
   const stats = useMemo(() => ({
     total: mergedList.length,
     avisados: mergedList.filter(x => x.avisado).length,
-    confirmados: confirmados.length,
-    noVienen: mergedList.filter(x => x.noViene).length
-  }), [mergedList, confirmados]);
+    confirmados: mergedList.filter(x => x.confirmado && !x.noViene).length,
+    particularesConf: particularesConfirmados.length
+  }), [mergedList, particularesConfirmados]);
 
   if (loading) {
     return (
@@ -244,7 +262,14 @@ function AgendaApp() {
     <div className="app">
       <nav className="navbar no-print">
         <div className="nav-title">📋 Agenda y Confirmaciones MCP</div>
-        <button className="btn btn-outline" style={{padding:'5px 12px',fontSize:'12px'}} onClick={()=>window.print()}>🖨 Imprimir</button>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-particulares" onClick={()=>setShowParticularesModal(true)}>
+            🏠 Particulares ({particularesConfirmados.length})
+          </button>
+          <button className="btn btn-outline" style={{padding:'5px 12px',fontSize:'12px'}} onClick={()=>window.print()}>
+            🖨 Imprimir Consultorio
+          </button>
+        </div>
       </nav>
 
       {/* MODAL HORARIO DE ATENCIÓN */}
@@ -256,17 +281,16 @@ function AgendaApp() {
               <button className="btn btn-outline" style={{padding:'3px 8px'}} onClick={()=>setTimeModalPatient(null)}>✕</button>
             </div>
             <p style={{fontSize:'13px',color:'#4a5568',marginBottom:'12px'}}>
-              Horario de turno para: <strong style={{color:'#1a202c'}}>{timeModalPatient.nombre}</strong>
+              Horario para: <strong style={{color:'#1a202c'}}>{timeModalPatient.nombre}</strong>
+              {timeModalPatient.particular && <span className="badge-part" style={{marginLeft:6}}>Particular</span>}
             </p>
-            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
-              <input 
-                type="time" 
-                value={inputTime} 
-                onChange={e=>setInputTime(e.target.value)} 
-                style={{flex:1,fontSize:'16px',padding:'8px'}}
-                autoFocus
-              />
-            </div>
+            <input 
+              type="time" 
+              value={inputTime} 
+              onChange={e=>setInputTime(e.target.value)} 
+              style={{width:'100%',fontSize:'16px',padding:'8px'}}
+              autoFocus
+            />
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={()=>setTimeModalPatient(null)}>Cancelar</button>
               <button className="btn btn-primary" onClick={handleConfirmTime}>Confirmar Horario</button>
@@ -275,12 +299,54 @@ function AgendaApp() {
         </div>
       )}
 
-      {/* CABECERA PARA LA IMPRESIÓN */}
+      {/* MODAL PARTICULARES CONFIRMADOS (DOMICILIOS) */}
+      {showParticularesModal && (
+        <div className="modal-overlay">
+          <div className="modal-box modal-lg">
+            <div className="modal-header">
+              <span>🏠 Particulares Confirmados (A Domicilio)</span>
+              <button className="btn btn-outline" style={{padding:'3px 8px'}} onClick={()=>setShowParticularesModal(false)}>✕</button>
+            </div>
+            <p style={{fontSize:'12px',color:'#718096',marginBottom:'12px'}}>
+              Total confirmados: <strong>{particularesConfirmados.length}</strong>
+            </p>
+            
+            <div style={{maxHeight:'60vh',overflowY:'auto',display:'flex',flexDirection:'column',gap:8}}>
+              {particularesConfirmados.length === 0 ? (
+                <div style={{textAlign:'center',padding:'2rem',color:'#a0aec0'}}>
+                  No hay pacientes particulares confirmados aún.
+                </div>
+              ) : (
+                particularesConfirmados.map((p, idx) => (
+                  <div key={p.id} style={{padding:'10px 14px',borderRadius:'8px',background:'#f8fafc',border:'1px solid #e2e8f0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:'14px',color:'#1a202c'}}>
+                        {idx + 1}. {p.nombre} {p.time && <span className="badge-time" style={{marginLeft:6}}>⏰ {p.time} hs</span>}
+                      </div>
+                      <div style={{fontSize:'12px',color:'#2b6cb0',marginTop:3}}>
+                        📞 {p.tel || 'Sin tel'} {p.owner}
+                      </div>
+                      <div style={{fontSize:'12px',color:'#4a5568',marginTop:2,fontWeight:500}}>
+                        📍 Dirección: <strong>{p.address}</strong>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={()=>setShowParticularesModal(false)}>Entendido</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CABECERA PARA LA IMPRESIÓN (SOLO CONSULTORIO) */}
       <div className="print-header">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
           <div>
             <h1 style={{fontSize:'18px',margin:0}}>MCP BOLÍVAR — CONTROL DE MARCAPASOS</h1>
-            <p style={{fontSize:'12px',margin:'2px 0 0'}}>PLANILLA DE ATENCIÓN EN CONSULTORIO</p>
+            <p style={{fontSize:'12px',margin:'2px 0 0'}}>PLANILLA DE CONSULTORIO (EXCLUYE PARTICULARES A DOMICILIO)</p>
           </div>
           <div style={{textAlign:'right'}}>
             <strong style={{fontSize:'13px'}}>Día de Consulta:</strong> {fechaConsulta || '__________________'}
@@ -288,8 +354,8 @@ function AgendaApp() {
         </div>
       </div>
 
-      {/* TABLA 1: CONFIRMADOS ORDENADOS POR HORA */}
-      <div className="print-section-title">✓ Pacientes Confirmados ({confirmados.length})</div>
+      {/* TABLA 1 IMPRESIÓN: CONFIRMADOS DE CONSULTORIO POR HORA */}
+      <div className="print-section-title">✓ Pacientes Confirmados — Consultorio ({confirmadosConsultorio.length})</div>
       <table className="print-table">
         <thead>
           <tr>
@@ -301,7 +367,7 @@ function AgendaApp() {
           </tr>
         </thead>
         <tbody>
-          {confirmados.map(p => (
+          {confirmadosConsultorio.map(p => (
             <tr key={p.id}>
               <td style={{textAlign:'center',fontWeight:'bold',fontSize:'12px'}}>{p.time || '—'}</td>
               <td style={{fontWeight:600}}>{p.nombre}</td>
@@ -310,12 +376,12 @@ function AgendaApp() {
               <td></td>
             </tr>
           ))}
-          {confirmados.length === 0 && <tr><td colSpan="5" style={{textAlign:'center'}}>Sin confirmados hasta el momento</td></tr>}
+          {confirmadosConsultorio.length === 0 && <tr><td colSpan="5" style={{textAlign:'center'}}>Sin confirmados de consultorio</td></tr>}
         </tbody>
       </table>
 
-      {/* TABLA 2: AVISADOS SIN CONFIRMAR (SIN HORARIO) */}
-      <div className="print-section-title">📱 Avisados Sin Confirmar / Reintentar Contacto ({pendientes.length})</div>
+      {/* TABLA 2 IMPRESIÓN: AVISADOS SIN CONFIRMAR (SOLO CONSULTORIO) */}
+      <div className="print-section-title">📱 Avisados Sin Confirmar / Reintentar Contacto ({pendientesConsultorio.length})</div>
       <table className="print-table">
         <thead>
           <tr>
@@ -327,7 +393,7 @@ function AgendaApp() {
           </tr>
         </thead>
         <tbody>
-          {pendientes.map((p, idx) => (
+          {pendientesConsultorio.map((p, idx) => (
             <tr key={p.id}>
               <td style={{textAlign:'center'}}>{idx + 1}</td>
               <td style={{fontWeight:600}}>{p.nombre}</td>
@@ -336,11 +402,11 @@ function AgendaApp() {
               <td></td>
             </tr>
           ))}
-          {pendientes.length === 0 && <tr><td colSpan="5" style={{textAlign:'center'}}>No hay pacientes pendientes de confirmación</td></tr>}
+          {pendientesConsultorio.length === 0 && <tr><td colSpan="5" style={{textAlign:'center'}}>No hay pacientes pendientes de confirmación</td></tr>}
         </tbody>
       </table>
 
-      {/* PANTALLA INTERACTIVA */}
+      {/* PANTALLA INTERACTIVA (MUESTRA TODOS) */}
       <div className="main no-print">
         <div className="card">
           <div style={{display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between'}}>
@@ -354,16 +420,21 @@ function AgendaApp() {
                 style={{width:'100%'}}
               />
             </div>
-            <button className="btn btn-primary" onClick={()=>window.print()}>🖨 Imprimir Planilla</button>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-particulares" onClick={()=>setShowParticularesModal(true)}>
+                🏠 Ver Particulares ({particularesConfirmados.length})
+              </button>
+              <button className="btn btn-primary" onClick={()=>window.print()}>🖨 Imprimir Consultorio</button>
+            </div>
           </div>
         </div>
 
         <div className="card" style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
           <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-            <span style={{background:'#ebf4ff',color:'#2b6cb0',padding:'4px 9px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Consultorio: {stats.total}</span>
+            <span style={{background:'#ebf4ff',color:'#2b6cb0',padding:'4px 9px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Total: {stats.total}</span>
             <span style={{background:'#fefcbf',color:'#744210',padding:'4px 9px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Avisados: {stats.avisados}</span>
             <span style={{background:'#f0fff4',color:'#276749',padding:'4px 9px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Confirmados: {stats.confirmados}</span>
-            <span style={{background:'#fff5f5',color:'#c53030',padding:'4px 9px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>No vienen: {stats.noVienen}</span>
+            <span style={{background:'#fffff0',color:'#744210',border:'1px solid #ecc94b',padding:'4px 9px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Particulares Conf.: {stats.particularesConf}</span>
           </div>
           <input 
             type="text" 
@@ -379,9 +450,11 @@ function AgendaApp() {
             <div>
               <div className="patient-name" style={{textDecoration: p.noViene ? 'line-through' : 'none'}}>
                 {p.nombre}
+                {p.particular && <span className="badge-part">🏠 Particular</span>}
                 {p.time && <span className="badge-time">⏰ {p.time} hs</span>}
               </div>
               <div className="patient-tel">📞 {p.tel || 'Sin teléfono'} {p.owner}</div>
+              {p.particular && <div className="patient-addr">📍 {p.address}</div>}
             </div>
 
             <div className="status-actions">
