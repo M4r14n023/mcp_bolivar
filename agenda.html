@@ -21,8 +21,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#f0f4f8;color:#1a
 .nav-title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px}
 .main{flex:1;padding:1rem;max-width:900px;margin:0 auto;width:100%}
 .card{background:#fff;border-radius:12px;border:0.5px solid #e2e8f0;padding:1rem;margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
-input[type=text]{padding:8px 12px;border:0.5px solid #cbd5e0;border-radius:8px;font-size:14px;outline:none}
-input[type=text]:focus{border-color:#805ad5}
+input[type=text], input[type=time]{padding:8px 12px;border:0.5px solid #cbd5e0;border-radius:8px;font-size:14px;outline:none;font-family:inherit}
+input:focus{border-color:#805ad5}
 .btn{padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;border:none;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s}
 .btn-primary{background:#805ad5;color:#fff}
 .btn-primary:hover{background:#6b46c1}
@@ -33,10 +33,11 @@ input[type=text]:focus{border-color:#805ad5}
 .patient-item{display:flex;align-items:center;justify-content:space-between;padding:12px;background:#fff;border-radius:10px;border:0.5px solid #e2e8f0;margin-bottom:8px;gap:12px;transition:all 0.15s}
 .patient-item.is-confirmed{background:#f0fff4;border-color:#9ae6b4}
 .patient-item.is-noviene{background:#fff5f5;border-color:#feb2b2;opacity:0.65}
-.patient-name{font-weight:700;font-size:14px;color:#1a202c}
+.patient-name{font-weight:700;font-size:14px;color:#1a202c;display:flex;align-items:center;gap:8px}
 .patient-tel{font-size:12px;color:#718096;margin-top:2px}
+.badge-time{background:#276749;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
 
-/* SELECTOR DE ESTADOS (CHIPS TÁCTILES) */
+/* SELECTOR DE ESTADOS */
 .status-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .chip-btn{padding:5px 10px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid #cbd5e0;background:#fff;color:#4a5568;cursor:pointer;user-select:none;transition:all 0.15s}
 .chip-btn:hover{background:#f7fafc}
@@ -44,10 +45,23 @@ input[type=text]:focus{border-color:#805ad5}
 .chip-confirmado.active{background:#276749;color:#fff;border-color:#276749}
 .chip-noviene.active{background:#e53e3e;color:#fff;border-color:#e53e3e}
 
-.spinner{border:3px solid #f3f3f3;border-top:3px solid #805ad5;border-radius:50%;width:24px;height:24px;animation:spin 1s linear infinite;margin:2rem auto}
-@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+/* MODAL DE HORARIO */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(2px)}
+.modal-box{background:#fff;border-radius:14px;width:100%;max-width:360px;padding:1.25rem;box-shadow:0 20px 40px rgba(0,0,0,0.2)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;font-weight:700;font-size:15px}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem}
 
-/* FORMATO EXCLUSIVO DE IMPRESIÓN */
+/* LOADER ECG */
+.ecg-loader-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;min-height:80vh}
+.ecg-heart-icon{font-size:38px;animation:heartPulse 1.1s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;filter:drop-shadow(0 4px 10px rgba(128, 90, 213, 0.35))}
+.ecg-svg-box{width:240px;height:60px;overflow:hidden}
+.ecg-line{stroke:#805ad5;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;fill:none;stroke-dasharray:450;stroke-dashoffset:450;animation:ecgSweep 1.6s ease-in-out infinite}
+.ecg-label{font-size:13px;font-weight:600;color:#805ad5;letter-spacing:0.5px}
+
+@keyframes heartPulse{0%{transform:scale(1)}14%{transform:scale(1.22)}28%{transform:scale(1)}42%{transform:scale(1.15)}70%{transform:scale(1)}}
+@keyframes ecgSweep{0%{stroke-dashoffset:450;opacity:0.2}15%{opacity:1}75%{stroke-dashoffset:0;opacity:1}90%{stroke-dashoffset:0;opacity:0}100%{stroke-dashoffset:0;opacity:0}}
+
+/* IMPRESIÓN */
 @media print{
   html,body,.app,.main{background:#fff!important;height:auto!important;margin:0!important;padding:0!important}
   .no-print,.navbar{display:none!important}
@@ -82,44 +96,79 @@ if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const firestore = firebase.firestore();
 
 function AgendaApp() {
-  const [data, setData] = useState(null);
+  const [patients, setPatients] = useState([]);
+  const [agendaState, setAgendaState] = useState({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [fechaConsulta, setFechaConsulta] = useState(() => localStorage.getItem('mcp_agenda_fecha') || '');
 
+  // Estado para el modal de asignación de horario
+  const [timeModalPatient, setTimeModalPatient] = useState(null);
+  const [inputTime, setInputTime] = useState('');
+
   useEffect(() => {
-    const unsub = firestore.collection('mcp').doc('agenda').onSnapshot(doc => {
+    // 1. Escuchar pacientes principales excluyendo fallecidos Y particulares
+    const unsubMain = firestore.collection('mcp').doc('main').onSnapshot(doc => {
       if (doc.exists) {
-        setData(doc.data().items || {});
+        const raw = doc.data().patients || [];
+        // Filtramos para dejar solo los de consultorio (no fallecidos, no particulares)
+        setPatients(raw.filter(p => !p.fallecido && !p.particular));
+      }
+    });
+
+    // 2. Escuchar la agenda en tiempo real
+    const unsubAgenda = firestore.collection('mcp').doc('agenda').onSnapshot(doc => {
+      if (doc.exists) {
+        setAgendaState(doc.data().items || {});
       } else {
-        setData({});
+        setAgendaState({});
       }
       setLoading(false);
     });
-    return () => unsub();
+
+    return () => { unsubMain(); unsubAgenda(); };
   }, []);
 
-  const updateStatus = (id, field) => {
-    const current = data[id]?.[field] || false;
-    let updatedItem = { ...data[id] };
+  const savePatientState = (id, updatedFields) => {
+    const item = { ...(agendaState[id] || {}), ...updatedFields };
+    setAgendaState(prev => ({ ...prev, [id]: item }));
+    firestore.collection('mcp').doc('agenda').set({
+      items: { ...agendaState, [id]: item }
+    }, { merge: true }).catch(console.error);
+  };
 
-    if (field === 'noViene') {
-      updatedItem.noViene = !current;
-      if (updatedItem.noViene) updatedItem.confirmado = false; // Si no viene, desactiva confirmado
-    } else if (field === 'confirmado') {
-      updatedItem.confirmado = !current;
-      if (updatedItem.confirmado) {
-        updatedItem.avisado = true; // Si confirmó, obviamente ya fue avisado
-        updatedItem.noViene = false;
+  const updateStatus = (patient, field) => {
+    const current = agendaState[patient.id]?.[field] || false;
+
+    if (field === 'confirmado') {
+      if (!current) {
+        // Al marcar confirmado, abrimos modal para pedir horario
+        setInputTime(agendaState[patient.id]?.time || '');
+        setTimeModalPatient(patient);
+      } else {
+        // Al desmarcar confirmado, removemos el horario
+        savePatientState(patient.id, { confirmado: false, time: '' });
       }
+    } else if (field === 'noViene') {
+      savePatientState(patient.id, {
+        noViene: !current,
+        confirmado: !current ? false : (agendaState[patient.id]?.confirmado || false),
+        time: !current ? '' : (agendaState[patient.id]?.time || '')
+      });
     } else if (field === 'avisado') {
-      updatedItem.avisado = !current;
+      savePatientState(patient.id, { avisado: !current });
     }
+  };
 
-    setData({ ...data, [id]: updatedItem });
-    firestore.collection('mcp').doc('agenda').update({
-      [`items.${id}`]: updatedItem
-    }).catch(console.error);
+  const handleConfirmTime = () => {
+    if (!timeModalPatient) return;
+    savePatientState(timeModalPatient.id, {
+      confirmado: true,
+      avisado: true,
+      noViene: false,
+      time: inputTime.trim()
+    });
+    setTimeModalPatient(null);
   };
 
   const handleFechaChange = (val) => {
@@ -127,29 +176,69 @@ function AgendaApp() {
     localStorage.setItem('mcp_agenda_fecha', val);
   };
 
-  const allPatients = useMemo(() => {
-    if (!data) return [];
-    return Object.values(data).sort((a,b) => a.nombre.localeCompare(b.nombre, 'es'));
-  }, [data]);
+  // Pacientes enriquecidos
+  const mergedList = useMemo(() => {
+    return patients.map(p => {
+      const st = agendaState[p.id] || {};
+      return {
+        id: p.id,
+        nombre: `${p.apellido}, ${p.nombre}`,
+        tel: `${p.telPrefix || ''} ${p.telNum || ''}`.trim(),
+        owner: p.telOwner !== 'Paciente' ? `(${p.telOwner}: ${p.telContact})` : '',
+        avisado: !!st.avisado,
+        confirmado: !!st.confirmado,
+        noViene: !!st.noViene,
+        time: st.time || ''
+      };
+    }).sort((a,b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [patients, agendaState]);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return allPatients;
-    return allPatients.filter(x => x.nombre.toLowerCase().includes(q));
-  }, [allPatients, filter]);
+    if (!q) return mergedList;
+    return mergedList.filter(x => x.nombre.toLowerCase().includes(q));
+  }, [mergedList, filter]);
 
-  // Listas divididas para la impresión
-  const confirmados = useMemo(() => allPatients.filter(x => x.confirmado && !x.noViene), [allPatients]);
-  const pendientes = useMemo(() => allPatients.filter(x => x.avisado && !x.confirmado && !x.noViene), [allPatients]);
+  // 1. Confirmados ordenados cronológicamente por horario
+  const confirmados = useMemo(() => {
+    return mergedList
+      .filter(x => x.confirmado && !x.noViene)
+      .sort((a, b) => {
+        if (!a.time && !b.time) return a.nombre.localeCompare(b.nombre, 'es');
+        if (!a.time) return 1;
+        if (!b.time) return -1;
+        return a.time.localeCompare(b.time);
+      });
+  }, [mergedList]);
+
+  // 2. Avisados sin confirmar (sin horario, ordenados alfabéticamente)
+  const pendientes = useMemo(() => {
+    return mergedList
+      .filter(x => x.avisado && !x.confirmado && !x.noViene)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  }, [mergedList]);
 
   const stats = useMemo(() => ({
-    total: allPatients.length,
-    avisados: allPatients.filter(x => x.avisado).length,
+    total: mergedList.length,
+    avisados: mergedList.filter(x => x.avisado).length,
     confirmados: confirmados.length,
-    noVienen: allPatients.filter(x => x.noViene).length
-  }), [allPatients, confirmados]);
+    noVienen: mergedList.filter(x => x.noViene).length
+  }), [mergedList, confirmados]);
 
-  if (loading) return <div style={{padding:'3rem',textAlign:'center'}}><div className="spinner"></div><p>Sincronizando agenda...</p></div>;
+  if (loading) {
+    return (
+      <div className="ecg-loader-wrap">
+        <div className="ecg-heart-icon">❤️</div>
+        <svg className="ecg-svg-box" viewBox="0 0 300 80">
+          <path
+            className="ecg-line"
+            d="M 0,40 L 40,40 L 55,40 L 65,33 L 75,40 L 95,40 L 105,52 L 120,8 L 135,68 L 145,40 L 165,40 L 180,28 L 200,40 L 300,40"
+          />
+        </svg>
+        <span className="ecg-label">Sincronizando Agenda MCP Bolívar...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -158,12 +247,40 @@ function AgendaApp() {
         <button className="btn btn-outline" style={{padding:'5px 12px',fontSize:'12px'}} onClick={()=>window.print()}>🖨 Imprimir</button>
       </nav>
 
-      {/* PLANILLA PARA IMPRIMIR EN HOJA FÍSICA */}
+      {/* MODAL HORARIO DE ATENCIÓN */}
+      {timeModalPatient && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <div className="modal-header">
+              <span>⏰ Asignar Horario</span>
+              <button className="btn btn-outline" style={{padding:'3px 8px'}} onClick={()=>setTimeModalPatient(null)}>✕</button>
+            </div>
+            <p style={{fontSize:'13px',color:'#4a5568',marginBottom:'12px'}}>
+              Horario de turno para: <strong style={{color:'#1a202c'}}>{timeModalPatient.nombre}</strong>
+            </p>
+            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+              <input 
+                type="time" 
+                value={inputTime} 
+                onChange={e=>setInputTime(e.target.value)} 
+                style={{flex:1,fontSize:'16px',padding:'8px'}}
+                autoFocus
+              />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={()=>setTimeModalPatient(null)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleConfirmTime}>Confirmar Horario</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CABECERA PARA LA IMPRESIÓN */}
       <div className="print-header">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
           <div>
             <h1 style={{fontSize:'18px',margin:0}}>MCP BOLÍVAR — CONTROL DE MARCAPASOS</h1>
-            <p style={{fontSize:'12px',margin:'2px 0 0'}}>PLANILLA DE CONSULTA Y LLAMADAS DE CONFIRMACIÓN</p>
+            <p style={{fontSize:'12px',margin:'2px 0 0'}}>PLANILLA DE ATENCIÓN EN CONSULTORIO</p>
           </div>
           <div style={{textAlign:'right'}}>
             <strong style={{fontSize:'13px'}}>Día de Consulta:</strong> {fechaConsulta || '__________________'}
@@ -171,22 +288,22 @@ function AgendaApp() {
         </div>
       </div>
 
-      {/* SECCIÓN 1 IMPRESIÓN: CONFIRMADOS */}
+      {/* TABLA 1: CONFIRMADOS ORDENADOS POR HORA */}
       <div className="print-section-title">✓ Pacientes Confirmados ({confirmados.length})</div>
       <table className="print-table">
         <thead>
           <tr>
-            <th style={{width:'25px'}}>#</th>
+            <th style={{width:'60px',textAlign:'center'}}>Hora</th>
             <th>Paciente</th>
             <th style={{width:'150px'}}>Teléfono / Contacto</th>
-            <th style={{width:'80px',textAlign:'center'}}>Estado</th>
-            <th style={{width:'220px'}}>Pago / Observaciones (Anotar en Recepción)</th>
+            <th style={{width:'75px',textAlign:'center'}}>Estado</th>
+            <th style={{width:'220px'}}>Pago / Observaciones (Recepción)</th>
           </tr>
         </thead>
         <tbody>
-          {confirmados.map((p, idx) => (
+          {confirmados.map(p => (
             <tr key={p.id}>
-              <td style={{textAlign:'center'}}>{idx + 1}</td>
+              <td style={{textAlign:'center',fontWeight:'bold',fontSize:'12px'}}>{p.time || '—'}</td>
               <td style={{fontWeight:600}}>{p.nombre}</td>
               <td>{p.tel} {p.owner}</td>
               <td style={{textAlign:'center',fontWeight:'bold'}}>CONFIRMADO</td>
@@ -197,8 +314,8 @@ function AgendaApp() {
         </tbody>
       </table>
 
-      {/* SECCIÓN 2 IMPRESIÓN: AVISADOS QUE NO RESPONDIERON (PARA REINTENTAR LLAMADO) */}
-      <div className="print-section-title">📱 Avisados Sin Confirmar / Reintentar Llamado ({pendientes.length})</div>
+      {/* TABLA 2: AVISADOS SIN CONFIRMAR (SIN HORARIO) */}
+      <div className="print-section-title">📱 Avisados Sin Confirmar / Reintentar Contacto ({pendientes.length})</div>
       <table className="print-table">
         <thead>
           <tr>
@@ -223,12 +340,12 @@ function AgendaApp() {
         </tbody>
       </table>
 
-      {/* VISTA EN PANTALLA (COMPUTADORA / CELULAR) */}
+      {/* PANTALLA INTERACTIVA */}
       <div className="main no-print">
         <div className="card">
           <div style={{display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between'}}>
             <div style={{flex:1,minWidth:'240px'}}>
-              <label style={{fontSize:'12px',fontWeight:700,color:'#718096',display:'block',marginBottom:'4px'}}>Fecha del día de consulta:</label>
+              <label style={{fontSize:'12px',fontWeight:700,color:'#718096',display:'block',marginBottom:'4px'}}>Fecha de la jornada (para impresión):</label>
               <input 
                 type="text" 
                 placeholder="Ej: Jueves 15 de Octubre" 
@@ -237,13 +354,13 @@ function AgendaApp() {
                 style={{width:'100%'}}
               />
             </div>
-            <button className="btn btn-primary" onClick={()=>window.print()}>🖨 Imprimir Hoja de Ruta</button>
+            <button className="btn btn-primary" onClick={()=>window.print()}>🖨 Imprimir Planilla</button>
           </div>
         </div>
 
         <div className="card" style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px'}}>
           <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-            <span style={{background:'#ebf4ff',color:'#2b6cb0',padding:'4px 9px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Total: {stats.total}</span>
+            <span style={{background:'#ebf4ff',color:'#2b6cb0',padding:'4px 9px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Consultorio: {stats.total}</span>
             <span style={{background:'#fefcbf',color:'#744210',padding:'4px 9px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Avisados: {stats.avisados}</span>
             <span style={{background:'#f0fff4',color:'#276749',padding:'4px 9px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>Confirmados: {stats.confirmados}</span>
             <span style={{background:'#fff5f5',color:'#c53030',padding:'4px 9px',borderRadius:'20px',fontSize:'12px',fontWeight:700}}>No vienen: {stats.noVienen}</span>
@@ -257,43 +374,38 @@ function AgendaApp() {
           />
         </div>
 
-        {filtered.length === 0 ? (
-          <div className="card" style={{textAlign:'center',padding:'2rem',color:'#718096'}}>
-            No hay pacientes en la agenda. Presiona <strong>"📋 Pasar a Agenda"</strong> en la app principal.
-          </div>
-        ) : (
-          filtered.map(p => (
-            <div key={p.id} className={`patient-item ${p.confirmado ? 'is-confirmed' : ''} ${p.noViene ? 'is-noviene' : ''}`}>
-              <div>
-                <div className="patient-name" style={{textDecoration: p.noViene ? 'line-through' : 'none'}}>
-                  {p.nombre}
-                </div>
-                <div className="patient-tel">📞 {p.tel || 'Sin teléfono'} {p.owner}</div>
+        {filtered.map(p => (
+          <div key={p.id} className={`patient-item ${p.confirmado ? 'is-confirmed' : ''} ${p.noViene ? 'is-noviene' : ''}`}>
+            <div>
+              <div className="patient-name" style={{textDecoration: p.noViene ? 'line-through' : 'none'}}>
+                {p.nombre}
+                {p.time && <span className="badge-time">⏰ {p.time} hs</span>}
               </div>
-
-              <div className="status-actions">
-                <button 
-                  className={`chip-btn chip-avisado ${p.avisado ? 'active' : ''}`}
-                  onClick={() => updateStatus(p.id, 'avisado')}
-                >
-                  📱 Avisado
-                </button>
-                <button 
-                  className={`chip-btn chip-confirmado ${p.confirmado ? 'active' : ''}`}
-                  onClick={() => updateStatus(p.id, 'confirmado')}
-                >
-                  ✓ Confirmado
-                </button>
-                <button 
-                  className={`chip-btn chip-noviene ${p.noViene ? 'active' : ''}`}
-                  onClick={() => updateStatus(p.id, 'noViene')}
-                >
-                  ✕ No viene
-                </button>
-              </div>
+              <div className="patient-tel">📞 {p.tel || 'Sin teléfono'} {p.owner}</div>
             </div>
-          ))
-        )}
+
+            <div className="status-actions">
+              <button 
+                className={`chip-btn chip-avisado ${p.avisado ? 'active' : ''}`}
+                onClick={() => updateStatus(p, 'avisado')}
+              >
+                📱 Avisado
+              </button>
+              <button 
+                className={`chip-btn chip-confirmado ${p.confirmado ? 'active' : ''}`}
+                onClick={() => updateStatus(p, 'confirmado')}
+              >
+                {p.confirmado ? `✓ ${p.time || 'Confirmado'}` : '✓ Confirmar'}
+              </button>
+              <button 
+                className={`chip-btn chip-noviene ${p.noViene ? 'active' : ''}`}
+                onClick={() => updateStatus(p, 'noViene')}
+              >
+                ✕ No viene
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
