@@ -130,7 +130,7 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-/* ANIMACIÓN ECG / LATIDO CARDIACO */
+/* ANIMACIÓN ECG */
 .ecg-loader-wrap {
   display: flex;
   flex-direction: column;
@@ -181,12 +181,8 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
   100% { stroke-dashoffset: 0; opacity: 0; }
 }
 
-
 @media(max-width: 640px) {
-  /* Layout general */
   .main { padding: 0.75rem; }
-
-  /* Navbar superior compacto para celular */
   .navbar {
     padding: 0 0.85rem;
     height: 54px;
@@ -199,11 +195,7 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
   }
   .nav-logo { font-size: 15px; flex: 1; }
   .nav-logo img { width: 28px !important; height: 28px !important; }
-
-  /* Ocultar botones tradicionales horizontales en celular */
   .desktop-nav-items { display: none !important; }
-
-  /* Menú desplegable móvil (hamburguesa) */
   .mobile-menu-drawer {
     position: fixed;
     top: 54px;
@@ -225,8 +217,6 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
     padding: 10px 14px;
     font-size: 14px;
   }
-
-  /* Barra de búsqueda y filtros en vertical */
   .search-wrap { width: 100% !important; min-width: 100% !important; }
   .filter-bar-mobile {
     display: flex;
@@ -243,11 +233,7 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
     flex-wrap: wrap;
   }
   .filter-actions-mobile button { flex: 1; justify-content: center; }
-
-  /* Ocultar la tabla ancha en celular */
   .desktop-table { display: none !important; }
-
-  /* Tarjetas móviles verticales */
   .mobile-cards-list {
     display: flex;
     flex-direction: column;
@@ -298,8 +284,6 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
     overflow: hidden;
     text-overflow: ellipsis;
   }
-
-  /* Modales a pantalla completa en celular */
   .modal-overlay { padding: 0 !important; }
   .modal {
     max-width: 100% !important;
@@ -312,7 +296,6 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
   .grid2, .grid3, .grid4 { grid-template-columns: 1fr !important; }
 }
 
-/* En monitores de computadora ocultamos las tarjetas móviles y el botón hamburguesa */
 @media(min-width: 641px) {
   .mobile-cards-list { display: none !important; }
   .mobile-menu-btn, .mobile-menu-drawer { display: none !important; }
@@ -543,7 +526,7 @@ function LoginScreen({ onLogin }) {
   function handleLogin(e) {
     e.preventDefault();
     if (pwd === '2702') onLogin('admin');
-    else if (pwd === 'noe') onLogin('secretaria');
+    else if (pwd === 'noe') onLogin('secre');
     else setErr('Clave incorrecta. Intenta nuevamente.');
   }
 
@@ -564,7 +547,6 @@ function LoginScreen({ onLogin }) {
 }
 
 function WhatsAppListModal({patients, onClose}) {
-  // Se recuperan los valores previamente guardados en el navegador
   const [nextDate, setNextDate] = useState(() => localStorage.getItem('mcp_wa_next_date') || '');
   const [price, setPrice] = useState(() => localStorage.getItem('mcp_wa_price') || '');
 
@@ -660,7 +642,7 @@ function PatientForm({db,setDB,patient,onClose}){
     batteryType:'percent',batteryPct:'',batteryYears:'',batteryMonths:'',
     obs:'',consultas:[],createdAt:new Date().toISOString(),
     fallecido: false,
-    particular: false // <-- AGREGADO
+    particular: false
   });
   const[err,setErr]=useState('');
   const age=useMemo(()=>calcAge(form.dob),[form.dob]);
@@ -1117,7 +1099,6 @@ function ConfigModule({db,setDB}){
 }
 
 function PrintListModal({patients, onClose, onlyParticulares = false}){
-  // Si estamos en modo particulares, filtramos los que tengan el tilde y no hayan fallecido
   const list = onlyParticulares 
     ? patients.filter(p => p.particular && !p.fallecido)
     : patients;
@@ -1230,23 +1211,31 @@ function App(){
     if (!role) return;
     const unsubscribe = firestore.collection('mcp').doc('main').onSnapshot(doc => {
       if (doc.exists) {
-        setDBRaw(doc.data());
+        const cloudData = doc.data();
+        if (cloudData && Array.isArray(cloudData.patients)) {
+          setDBRaw(cloudData);
+        }
       } else {
-        setDBRaw({...DEFAULT});
-        if(role === 'admin') firestore.collection('mcp').doc('main').set({...DEFAULT});
+        console.warn("El documento mcp/main no existe o no se pudo leer.");
       }
       setLoading(false);
     }, err => {
-      console.error(err);
-      showAlert({title: "Error de conexión", message: "Problemas al conectar con Firestore."});
+      console.error("Error al conectar con Firestore:", err);
+      showAlert({title: "Error de conexión", message: "Problemas al conectar con Firestore: " + err.message});
     });
     return () => unsubscribe();
   }, [role]);
 
   function setDB(newDB){
     setDBRaw(newDB); 
+    // Respaldo local instantáneo en cada guardado
+    try {
+      localStorage.setItem('mcpbolivar_v3', JSON.stringify(newDB));
+    } catch(e) {
+      console.warn("No se pudo escribir en localStorage:", e);
+    }
     if(role === 'admin') {
-      firestore.collection('mcp').doc('main').set(newDB).catch(err => {
+      firestore.collection('mcp').doc('main').set(newDB, { merge: true }).catch(err => {
         console.error(err);
         showAlert({title: "Error", message: "No se pudieron sincronizar los datos en la nube."});
       });
@@ -1349,7 +1338,6 @@ function App(){
           {/* BOTÓN +NUEVO Y HAMBURGUESA PARA CELULAR (SOLO ADMIN) */}
           {role === 'admin' && (
             <>
-              {/* Le agregamos "mobile-menu-btn" para que se oculte en PC y no quede doble */}
               <button className="nav-new mobile-menu-btn" style={{padding: '5px 10px', fontSize: '12px'}} onClick={()=>setShowNew(true)}>
                 + Nuevo
               </button>
@@ -1399,7 +1387,6 @@ function App(){
             ⚙ Configuración
           </button>
           <div style={{height: '1px', background: 'rgba(255,255,255,0.15)', margin: '4px 0'}}></div>
-          {/* El administrador cierra sesión desde aquí en el celular */}
           <button 
             className="nav-btn" 
             style={{background: 'rgba(239,68,68,0.25)', color: '#fca5a5'}}
@@ -1453,7 +1440,6 @@ function App(){
                           <div style={{display:'flex',alignItems:'center',gap:8}}>
                             <div style={{width:30,height:30,borderRadius:'50%',background: p.fallecido ? '#e2e8f0' : '#ebf4ff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color: p.fallecido ? '#718096' : '#1a56db'}}>{p.apellido[0]}{p.nombre[0]}</div>
                             <span style={{fontWeight:600, textDecoration: p.fallecido ? 'line-through' : 'none', color: p.fallecido ? '#718096' : 'inherit'}}>{p.apellido}, {p.nombre}</span>
-                            {/* BADGES PARTICULARES Y FALLECIDO */}
                             {p.particular && <span className="badge badge-yellow" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}}>Particular</span>}
                             {p.fallecido && <span className="badge badge-red" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}}>Fallecido</span>}
                           </div>
