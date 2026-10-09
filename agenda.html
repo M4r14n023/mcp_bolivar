@@ -142,7 +142,7 @@ function AgendaApp() {
     }, { merge: true }).catch(console.error);
   };
 
-  const updateStatus = (patient, field) => {
+  const updateStatus = async (patient, field) => {
     const current = agendaState[patient.id]?.[field] || false;
 
     if (field === 'confirmado') {
@@ -153,11 +153,52 @@ function AgendaApp() {
         savePatientState(patient.id, { confirmado: false, time: '' });
       }
     } else if (field === 'noViene') {
+      const willBeNoViene = !current;
+      
+      // 1. Guardar en la agenda actual
       savePatientState(patient.id, {
-        noViene: !current,
-        confirmado: !current ? false : (agendaState[patient.id]?.confirmado || false),
-        time: !current ? '' : (agendaState[patient.id]?.time || '')
+        noViene: willBeNoViene,
+        confirmado: willBeNoViene ? false : (agendaState[patient.id]?.confirmado || false),
+        time: willBeNoViene ? '' : (agendaState[patient.id]?.time || '')
       });
+
+      // 2. Impactar en el historial del paciente en mcp/main
+      try {
+        const mainDoc = await firestore.collection('mcp').doc('main').get();
+        if (mainDoc.exists) {
+          const mainData = mainDoc.data();
+          const fechaHoy = fechaConsulta || new Date().toLocaleDateString('es-AR');
+
+          const updatedPatients = (mainData.patients || []).map(p => {
+            if (p.id !== patient.id) return p;
+
+            let count = p.ausenciasCount || 0;
+            let fechas = Array.isArray(p.ausenciasFechas) ? [...p.ausenciasFechas] : [];
+
+            if (willBeNoViene) {
+              count += 1;
+              if (!fechas.includes(fechaHoy)) fechas.push(fechaHoy);
+            } else {
+              count = Math.max(0, count - 1);
+              fechas = fechas.filter(f => f !== fechaHoy);
+            }
+
+            return {
+              ...p,
+              ausenciasCount: count,
+              ausenciasFechas: fechas,
+              ultimaAusencia: willBeNoViene ? fechaHoy : (fechas[fechas.length - 1] || null)
+            };
+          });
+
+          await firestore.collection('mcp').doc('main').set({
+            patients: updatedPatients
+          }, { merge: true });
+        }
+      } catch (err) {
+        console.error("Error actualizando contador de ausencias:", err);
+      }
+
     } else if (field === 'avisado') {
       savePatientState(patient.id, { avisado: !current });
     }
@@ -449,10 +490,15 @@ function AgendaApp() {
           <div key={p.id} className={`patient-item ${p.confirmado ? 'is-confirmed' : ''} ${p.noViene ? 'is-noviene' : ''}`}>
             <div>
               <div className="patient-name" style={{textDecoration: p.noViene ? 'line-through' : 'none'}}>
-                {p.nombre}
-                {p.particular && <span className="badge-part">🏠 Particular</span>}
-                {p.time && <span className="badge-time">⏰ {p.time} hs</span>}
-              </div>
+              {p.nombre}
+              {p.particular && <span className="badge-part">🏠 Particular</span>}
+              {p.time && <span className="badge-time">⏰ {p.time} hs</span>}
+              {p.ausenciasCount > 0 && (
+                <span style={{background: '#fed7d7', color: '#9b2c2c', padding: '1px 7px', borderRadius: '10px', fontSize: '10px', fontWeight: 700}}>
+                  ⚠️ Faltó {p.ausenciasCount} {p.ausenciasCount === 1 ? 'vez' : 'veces'}
+                </span>
+              )}
+            </div>
               <div className="patient-tel">📞 {p.tel || 'Sin teléfono'} {p.owner}</div>
               {p.particular && <div className="patient-addr">📍 {p.address}</div>}
             </div>

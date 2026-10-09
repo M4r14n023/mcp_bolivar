@@ -1098,6 +1098,164 @@ function ConfigModule({db,setDB}){
   );
 }
 
+function NotesModule({ db, setDB }) {
+  const { showConfirm } = useDialog();
+  const notes = db.notes || { tasks: [], ideas: '' };
+  const [tab, setTab] = useState('tasks');
+  const [newTaskText, setNewTaskText] = useState('');
+  const [ideasText, setIdeasText] = useState(notes.ideas || '');
+  const [savedMsg, setSavedMsg] = useState(false);
+
+  // Guardar ideas en Firestore y localStorage
+  const handleSaveIdeas = () => {
+    const updated = { ...notes, ideas: ideasText };
+    setDB({ ...db, notes: updated });
+    setSavedMsg(true);
+    setTimeout(() => setSavedMsg(false), 2000);
+  };
+
+  // Agregar una nueva tarea
+  const addTask = (e) => {
+    e.preventDefault();
+    const txt = newTaskText.trim();
+    if (!txt) return;
+    const newTask = {
+      id: Date.now().toString(),
+      text: txt,
+      done: false,
+      createdAt: todayStr()
+    };
+    const updated = { ...notes, tasks: [newTask, ...(notes.tasks || [])] };
+    setDB({ ...db, notes: updated });
+    setNewTaskText('');
+  };
+
+  // Alternar estado de completada
+  const toggleTask = (taskId) => {
+    const updatedTasks = (notes.tasks || []).map(t => 
+      t.id === taskId ? { ...t, done: !t.done } : t
+    );
+    setDB({ ...db, notes: { ...notes, tasks: updatedTasks } });
+  };
+
+  // Eliminar tarea
+  const deleteTask = async (taskId) => {
+    const ok = await showConfirm({
+      title: 'Eliminar tarea',
+      message: '¿Deseas borrar este pendiente?',
+      isDanger: true,
+      confirmText: 'Borrar'
+    });
+    if (!ok) return;
+    const updatedTasks = (notes.tasks || []).filter(t => t.id !== taskId);
+    setDB({ ...db, notes: { ...notes, tasks: updatedTasks } });
+  };
+
+  return (
+    <div>
+      <div className="card" style={{paddingBottom: '0.5rem'}}>
+        <div className="tab-bar" style={{marginBottom: '1rem'}}>
+          <div className={`tab ${tab === 'tasks' ? 'active' : ''}`} onClick={() => setTab('tasks')}>
+            📌 Tareas y Pendientes {(notes.tasks || []).filter(t => !t.done).length > 0 && (
+              <span className="badge badge-blue" style={{marginLeft: 6}}>
+                {(notes.tasks || []).filter(t => !t.done).length}
+              </span>
+            )}
+          </div>
+          <div className={`tab ${tab === 'ideas' ? 'active' : ''}`} onClick={() => setTab('ideas')}>
+            💡 Ideas & Futuras Modificaciones
+          </div>
+        </div>
+
+        {tab === 'tasks' && (
+          <div>
+            <form onSubmit={addTask} style={{display: 'flex', gap: '8px', marginBottom: '1rem'}}>
+              <input
+                type="text"
+                placeholder="Escribe un pendiente o ajuste técnico..."
+                value={newTaskText}
+                onChange={e => setNewTaskText(e.target.value)}
+                style={{flex: 1}}
+              />
+              <button type="submit" className="btn btn-primary" style={{whiteSpace: 'nowrap'}}>
+                + Agregar
+              </button>
+            </form>
+
+            <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+              {(notes.tasks || []).length === 0 && (
+                <div style={{textAlign: 'center', padding: '2rem', color: '#a0aec0'}}>
+                  No hay pendientes anotados. ¡Todo al día!
+                </div>
+              )}
+              {(notes.tasks || []).map(task => (
+                <div 
+                  key={task.id} 
+                  style={{
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    background: task.done ? '#f8fafc' : '#fff',
+                    border: '1px solid #e2e8f0',
+                    opacity: task.done ? 0.6 : 1
+                  }}
+                >
+                  <label style={{display: 'flex', alignItems: 'center', gap: '10px', margin: 0, cursor: 'pointer', flex: 1}}>
+                    <input 
+                      type="checkbox" 
+                      checked={task.done} 
+                      onChange={() => toggleTask(task.id)}
+                    />
+                    <span style={{
+                      fontSize: '14px',
+                      textDecoration: task.done ? 'line-through' : 'none',
+                      color: task.done ? '#718096' : '#1a202c'
+                    }}>
+                      {task.text}
+                    </span>
+                  </label>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                    <span style={{fontSize: '11px', color: '#a0aec0'}}>{task.createdAt}</span>
+                    <button 
+                      className="btn btn-xs btn-danger" 
+                      onClick={() => deleteTask(task.id)}
+                      title="Eliminar"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab === 'ideas' && (
+          <div>
+            <textarea
+              rows={12}
+              placeholder="Anota aquí ideas de diseño, flujos a mejorar, consultas sobre marcapasos o notas clínicas rápidas..."
+              value={ideasText}
+              onChange={e => setIdeasText(e.target.value)}
+              style={{fontFamily: 'monospace', fontSize: '13px', lineHeight: 1.5, resize: 'vertical'}}
+            />
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px'}}>
+              {savedMsg ? (
+                <span className="badge badge-green">✓ Cambios guardados en la nube</span>
+              ) : <span />}
+              <button className="btn btn-primary" onClick={handleSaveIdeas}>
+                💾 Guardar Notas
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PrintListModal({patients, onClose, onlyParticulares = false}){
   const list = onlyParticulares 
     ? patients.filter(p => p.particular && !p.fallecido)
@@ -1325,6 +1483,7 @@ function App(){
         {role === 'admin' && (
           <div className="desktop-nav-items" style={{display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto'}}>
             <button className={`nav-btn ${view === 'patients' ? 'active' : ''}`} onClick={()=>setView('patients')}>👥 Pacientes</button>
+            <button className={`nav-btn ${view === 'notes' ? 'active' : ''}`} onClick={()=>setView('notes')}>📝 Notas</button>
             <button className={`nav-btn ${view === 'finances' ? 'active' : ''}`} onClick={()=>setView('finances')}>💼 Finanzas</button>
             <button className={`nav-btn ${view === 'config' ? 'active' : ''}`} onClick={()=>setView('config')}>⚙ Config</button>
             <button className="nav-new" onClick={()=>setShowNew(true)}><span>👤</span>+ Nuevo</button>
@@ -1375,6 +1534,12 @@ function App(){
             👥 Pacientes
           </button>
           <button 
+            className={`nav-btn ${view === 'notes' ? 'active' : ''}`} 
+            onClick={() => { setView('notes'); setMobileMenuOpen(false); }}
+          >
+            📝 Bloc de Notas & Pendientes
+          </button>
+          <button 
             className={`nav-btn ${view === 'finances' ? 'active' : ''}`} 
             onClick={() => { setView('finances'); setMobileMenuOpen(false); }}
           >
@@ -1397,7 +1562,7 @@ function App(){
         </div>
       )}
 
-      <div className="main">
+     <div className="main">
         {view==='patients'&&(
           <>
             <div className="card" style={{marginBottom: '0.75rem'}}>
@@ -1442,6 +1607,11 @@ function App(){
                             <span style={{fontWeight:600, textDecoration: p.fallecido ? 'line-through' : 'none', color: p.fallecido ? '#718096' : 'inherit'}}>{p.apellido}, {p.nombre}</span>
                             {p.particular && <span className="badge badge-yellow" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}}>Particular</span>}
                             {p.fallecido && <span className="badge badge-red" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}}>Fallecido</span>}
+                            {p.ausenciasCount > 0 && !p.fallecido && (
+                              <span className="badge badge-orange" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}} title={`Última ausencia: ${p.ultimaAusencia || 'N/A'}`}>
+                                ⚠️ {p.ausenciasCount} {p.ausenciasCount === 1 ? 'falta' : 'faltas'} ({p.ultimaAusencia || 'sin fecha'})
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td>{calcAge(p.dob)??'—'}</td><td style={{color:'#718096'}}>{p.city||'—'}</td><td>{p.deviceType||'—'}</td>
@@ -1468,8 +1638,13 @@ function App(){
                         {p.apellido}, {p.nombre}
                       </span>
                     </div>
-                    <div>
-                      {p.particular && <span className="badge badge-yellow" style={{marginRight: 4, fontSize: '9px'}}>Part.</span>}
+                    <div style={{display:'flex', alignItems:'center', gap:'4px', flexWrap:'wrap', justifyContent:'flex-end'}}>
+                      {p.particular && <span className="badge badge-yellow" style={{fontSize: '9px'}}>Part.</span>}
+                      {p.ausenciasCount > 0 && !p.fallecido && (
+                        <span className="badge badge-orange" style={{fontSize: '9px'}} title={`Última ausencia: ${p.ultimaAusencia || 'N/A'}`}>
+                          ⚠️ {p.ausenciasCount} {p.ausenciasCount === 1 ? 'falta' : 'faltas'}
+                        </span>
+                      )}
                       {p.fallecido ? (
                         <span className="badge badge-red">Fallecido</span>
                       ) : (
@@ -1487,6 +1662,14 @@ function App(){
                 </div>
               ))}
             </div>
+          </>
+        )}
+
+        {/* VISTA DEL BLOC DE NOTAS Y PENDIENTES (SOLO ADMIN) */}
+        {view==='notes' && role === 'admin' && (
+          <>
+            <h2 style={{fontSize: 18, marginBottom: '1rem'}}>📝 Bloc de Notas & Pendientes</h2>
+            <NotesModule db={db} setDB={setDB} />
           </>
         )}
 
