@@ -1029,11 +1029,86 @@ function FinanceModule({db,setDB}){
   }
 
   async function close(){
-    if(!cs)return;
-    const ok = await showConfirm({title: 'Cerrar Jornada', message: `¿Cerrar jornada con ${cs.count} pacientes?`, confirmText: 'Cerrar'});
+    if(!cs) return;
+    const ok = await showConfirm({
+      title: 'Cerrar Jornada Clínica',
+      message: `¿Confirmás el cierre de la jornada con ${cs.count} pacientes atendidos?\n\nEsto registrará las ausencias de quienes no concurrieron y dejará la agenda limpia para el próximo control.`,
+      confirmText: 'Cerrar Jornada'
+    });
     if(!ok) return;
-    const totalRecaudado = cs.consultaVal * cs.count;
-    setDB({...db,finances:{sessions:[...(fin.sessions||[]),{...cs,total: totalRecaudado,gananciaMio: totalRecaudado * 0.8,gananciaSec: totalRecaudado * 0.2,costoMio: cs.alquilerVal * 0.8,costoSec: cs.alquilerVal * 0.2,closedAt:new Date().toISOString()}],currentSession:null}});
+
+    try {
+      // 1. Leemos la agenda actual para detectar a los ausentes
+      const agendaSnap = await firestore.collection('mcp').doc('agenda').get();
+      let updatedPatients = [...(db.patients || [])];
+      let ausentesDetectados = 0;
+
+      if (agendaSnap.exists) {
+        const agendaItems = agendaSnap.data().items || {};
+        const fechaJornada = cs.date || todayStr();
+
+        updatedPatients = updatedPatients.map(p => {
+          const st = agendaItems[p.id];
+          // Si estaba marcado como "no viene", asentamos la ausencia
+          if (st && st.noViene) {
+            ausentesDetectados++;
+            const count = (p.ausenciasCount || 0) + 1;
+            const fechas = Array.isArray(p.ausenciasFechas) ? [...p.ausenciasFechas] : [];
+            if (!fechas.includes(fechaJornada)) fechas.push(fechaJornada);
+
+            return {
+              ...p,
+              ausenciasCount: count,
+              ausenciasFechas: fechas,
+              ultimaAusencia: fechaJornada
+            };
+          }
+          return p;
+        });
+
+        // 2. Vaciamos la agenda en Firebase para la próxima fecha
+        await firestore.collection('mcp').doc('agenda').set({ items: {} });
+      }
+
+      // 3. Borramos la fecha temporal guardada
+      localStorage.removeItem('mcp_agenda_fecha');
+
+      // 4. Cerramos finanzas y guardamos la base actualizada
+      const totalRecaudado = cs.consultaVal * cs.count;
+      const updatedFinances = {
+        sessions: [
+          ...(fin.sessions || []),
+          {
+            ...cs,
+            total: totalRecaudado,
+            gananciaMio: totalRecaudado * 0.8,
+            gananciaSec: totalRecaudado * 0.2,
+            costoMio: cs.alquilerVal * 0.8,
+            costoSec: cs.alquilerVal * 0.2,
+            closedAt: new Date().toISOString()
+          }
+        ],
+        currentSession: null
+      };
+
+      setDB({
+        ...db,
+        patients: updatedPatients,
+        finances: updatedFinances
+      });
+
+      await showAlert({
+        title: 'Jornada Finalizada',
+        message: `✓ Jornada cerrada con éxito.\n✓ Se registraron ${ausentesDetectados} ausencias.\n✓ Agenda reseteada para el próximo mes.`
+      });
+
+    } catch (err) {
+      console.error("Error al cerrar la jornada:", err);
+      await showAlert({
+        title: 'Error',
+        message: 'Ocurrió un error al procesar el cierre: ' + err.message
+      });
+    }
   }
 
   async function deleteSession(sid){
