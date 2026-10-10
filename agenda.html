@@ -165,32 +165,54 @@ function AgendaApp() {
   };
 
   const updateStatus = (patient, field) => {
-    const current = agendaState[patient.id]?.[field] || false;
+    const st = agendaState[patient.id] || {};
+    const current = !!st[field];
 
     if (field === 'confirmado') {
       if (!current) {
-        setInputTime(agendaState[patient.id]?.time || '');
+        // Al querer confirmar, pedimos horario y apagaremos Avisado y No viene
+        setInputTime(st.time || '');
         setTimeModalPatient(patient);
       } else {
+        // Desmarcar confirmado -> vuelve a sin estado
         savePatientState(patient.id, { confirmado: false, time: '' });
       }
     } else if (field === 'noViene') {
-      const willBeNoViene = !current;
-      savePatientState(patient.id, {
-        noViene: willBeNoViene,
-        confirmado: willBeNoViene ? false : (agendaState[patient.id]?.confirmado || false),
-        time: willBeNoViene ? '' : (agendaState[patient.id]?.time || '')
-      });
+      if (!current) {
+        // Activar No viene -> apaga confirmado (borra hora) y apaga avisado
+        savePatientState(patient.id, {
+          noViene: true,
+          confirmado: false,
+          avisado: false,
+          time: ''
+        });
+      } else {
+        // Desmarcar No viene -> vuelve a sin estado
+        savePatientState(patient.id, { noViene: false });
+      }
     } else if (field === 'avisado') {
-      savePatientState(patient.id, { avisado: !current });
+      if (!current) {
+        // Activar Avisado -> apaga confirmado (borra hora) y apaga No viene
+        savePatientState(patient.id, {
+          avisado: true,
+          confirmado: false,
+          noViene: false,
+          time: ''
+        });
+      } else {
+        // Desmarcar Avisado -> vuelve a sin estado
+        savePatientState(patient.id, { avisado: false });
+      }
     }
   };
 
   const confirmTimeAssignment = () => {
     if (!timeModalPatient) return;
+    // Confirmar turno apaga automáticamente avisado y noViene
     savePatientState(timeModalPatient.id, {
       confirmado: true,
       time: inputTime.trim(),
+      avisado: false,
       noViene: false
     });
     setTimeModalPatient(null);
@@ -212,27 +234,35 @@ function AgendaApp() {
   }, [patients, agendaState]);
 
   // Contadores para las píldoras
+  // Contadores exactos y mutuamente excluyentes
   const counts = useMemo(() => {
-    let conf = 0, avis = 0, noV = 0, part = 0;
+    let conf = 0, avis = 0, noV = 0, sinLlamar = 0, part = 0;
     enrichedList.forEach(p => {
-      if (p.confirmado) conf++;
-      if (p.avisado) avis++;
-      if (p.noViene) noV++;
       if (p.particular) part++;
+      if (p.noViene) {
+        noV++;
+      } else if (p.confirmado) {
+        conf++;
+      } else if (p.avisado) {
+        avis++;
+      } else {
+        sinLlamar++;
+      }
     });
-    return { conf, avis, noV, part, total: enrichedList.length };
+    return { conf, avis, noV, sinLlamar, part, total: enrichedList.length };
   }, [enrichedList]);
 
-  // Filtrado reactivo
+  // Filtrado reactivo sin solapamientos
   const filtered = useMemo(() => {
     return enrichedList.filter(p => {
       const q = search.trim().toLowerCase();
       const matchSearch = !q || (p.apellido + ' ' + p.nombre).toLowerCase().includes(q);
       if (!matchSearch) return false;
 
-      if (filter === 'confirmados') return p.confirmado;
-      if (filter === 'avisados') return p.avisado && !p.confirmado;
+      if (filter === 'confirmados') return p.confirmado && !p.noViene;
+      if (filter === 'avisados') return p.avisado && !p.confirmado && !p.noViene;
       if (filter === 'noVienen') return p.noViene;
+      if (filter === 'sinLlamar') return !p.confirmado && !p.avisado && !p.noViene;
       if (filter === 'particulares') return p.particular;
       return true;
     }).sort((a, b) => {
@@ -309,11 +339,14 @@ function AgendaApp() {
           <button className={`pill ${filter === 'todos' ? 'active' : ''}`} onClick={() => setFilter('todos')}>
             Todos ({counts.total})
           </button>
-          <button className={`pill ${filter === 'confirmados' ? 'active' : ''}`} onClick={() => setFilter('confirmados')}>
-            ✓ Confirmados ({counts.conf})
+          <button className={`pill ${filter === 'sinLlamar' ? 'active' : ''}`} onClick={() => setFilter('sinLlamar')}>
+            ⚪ Sin llamar ({counts.sinLlamar})
           </button>
           <button className={`pill ${filter === 'avisados' ? 'active' : ''}`} onClick={() => setFilter('avisados')}>
             ⏳ Avisados ({counts.avis})
+          </button>
+          <button className={`pill ${filter === 'confirmados' ? 'active' : ''}`} onClick={() => setFilter('confirmados')}>
+            ✓ Confirmados ({counts.conf})
           </button>
           <button className={`pill ${filter === 'noVienen' ? 'active' : ''}`} onClick={() => setFilter('noVienen')}>
             ✕ No vienen ({counts.noV})
