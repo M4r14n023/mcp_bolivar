@@ -63,7 +63,7 @@ label{font-size:13px;color:#4a5568;margin-bottom:4px;display:block;font-weight:5
 .badge-yellow{background:#fffff0;color:#744210;border:.5px solid #ecc94b}
 .badge-red{background:#fff5f5;color:#c53030}
 .badge-gray{background:#f7fafc;color:#4a5568;border:.5px solid #e2e8f0}
-.badge-orange{background:#fffaf0;color:#c05621}
+.badge-orange{background:#fffaf0;color:#c05621;border:.5px solid #fbd38d}
 .table-wrap{overflow-x:auto;border-radius:8px;border:.5px solid #e2e8f0}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{padding:9px 12px;text-align:left;font-weight:600;color:#4a5568;background:#f7fafc;border-bottom:.5px solid #e2e8f0;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
@@ -94,12 +94,8 @@ tr:hover td{background:#f8fbff}
 .autocomplete-item{padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:.5px solid #f0f4f8}
 .autocomplete-item:last-child{border-bottom:none}
 .autocomplete-item:hover{background:#f0f7ff;color:#1a56db}
-.stat-card{background:#f7fafc;border-radius:10px;padding:.85rem 1rem;text-align:center;border:.5px solid #e2e8f0}
-.stat-num{font-size:22px;font-weight:700;color:#1a56db;line-height:1.2}
-.stat-label{font-size:11px;color:#718096;margin-top:3px;font-weight:500}
 .section-title{font-size:12px;font-weight:700;color:#718096;margin:1rem 0 .5rem;padding-bottom:.35rem;border-bottom:.5px solid #e2e8f0;text-transform:uppercase;letter-spacing:.6px; display: flex; justify-content: space-between; align-items: center;}
 .chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#ebf4ff;color:#1a56db;border-radius:20px;font-size:12px;font-weight:500;border:.5px solid #bee3f8}
-.chip-green{background:#f0fff4;color:#276749;border-color:#9ae6b4}
 .empty-state{text-align:center;padding:3rem 1rem;color:#a0aec0}
 .empty-icon{font-size:44px;margin-bottom:.75rem;opacity:.6}
 .divider{height:.5px;background:#e2e8f0;margin:.75rem 0}
@@ -131,167 +127,37 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 /* ANIMACIÓN ECG */
-.ecg-loader-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1.25rem;
-}
-.ecg-heart-icon {
-  font-size: 38px;
-  animation: heartPulse 1.1s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-  filter: drop-shadow(0 4px 10px rgba(229, 62, 62, 0.35));
-}
-.ecg-svg-box {
-  width: 240px;
-  height: 60px;
-  overflow: hidden;
-}
-.ecg-line {
-  stroke: #1a56db;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-  stroke-dasharray: 450;
-  stroke-dashoffset: 450;
-  animation: ecgSweep 1.6s ease-in-out infinite;
-}
-.ecg-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1a56db;
-  letter-spacing: 0.5px;
-}
+.ecg-loader-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.25rem; }
+.ecg-heart-icon { font-size: 38px; animation: heartPulse 1.1s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; filter: drop-shadow(0 4px 10px rgba(229, 62, 62, 0.35)); }
+.ecg-svg-box { width: 240px; height: 60px; overflow: hidden; }
+.ecg-line { stroke: #1a56db; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: 450; stroke-dashoffset: 450; animation: ecgSweep 1.6s ease-in-out infinite; }
+.ecg-label { font-size: 13px; font-weight: 600; color: #1a56db; letter-spacing: 0.5px; }
 
-@keyframes heartPulse {
-  0% { transform: scale(1); }
-  14% { transform: scale(1.22); }
-  28% { transform: scale(1); }
-  42% { transform: scale(1.15); }
-  70% { transform: scale(1); }
-}
-
-@keyframes ecgSweep {
-  0% { stroke-dashoffset: 450; opacity: 0.2; }
-  15% { opacity: 1; }
-  75% { stroke-dashoffset: 0; opacity: 1; }
-  90% { stroke-dashoffset: 0; opacity: 0; }
-  100% { stroke-dashoffset: 0; opacity: 0; }
-}
+@keyframes heartPulse { 0% { transform: scale(1); } 14% { transform: scale(1.22); } 28% { transform: scale(1); } 42% { transform: scale(1.15); } 70% { transform: scale(1); } }
+@keyframes ecgSweep { 0% { stroke-dashoffset: 450; opacity: 0.2; } 15% { opacity: 1; } 75% { stroke-dashoffset: 0; opacity: 1; } 90% { stroke-dashoffset: 0; opacity: 0; } 100% { stroke-dashoffset: 0; opacity: 0; } }
 
 @media(max-width: 640px) {
   .main { padding: 0.75rem; }
-  .navbar {
-    padding: 0 0.85rem;
-    height: 54px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
+  .navbar { padding: 0 0.85rem; height: 54px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
   .nav-logo { font-size: 15px; flex: 1; }
   .nav-logo img { width: 28px !important; height: 28px !important; }
   .desktop-nav-items { display: none !important; }
-  .mobile-menu-drawer {
-    position: fixed;
-    top: 54px;
-    left: 0;
-    right: 0;
-    background: #1648c0;
-    border-bottom: 2px solid rgba(255,255,255,0.15);
-    display: flex;
-    flex-direction: column;
-    padding: 0.75rem 1rem;
-    gap: 8px;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.25);
-    z-index: 99;
-    animation: fadeIn 0.15s ease-out;
-  }
-  .mobile-menu-drawer button {
-    width: 100%;
-    justify-content: flex-start;
-    padding: 10px 14px;
-    font-size: 14px;
-  }
+  .mobile-menu-drawer { position: fixed; top: 54px; left: 0; right: 0; background: #1648c0; border-bottom: 2px solid rgba(255,255,255,0.15); display: flex; flex-direction: column; padding: 0.75rem 1rem; gap: 8px; box-shadow: 0 10px 20px rgba(0,0,0,0.25); z-index: 99; animation: fadeIn 0.15s ease-out; }
+  .mobile-menu-drawer button { width: 100%; justify-content: flex-start; padding: 10px 14px; font-size: 14px; }
   .search-wrap { width: 100% !important; min-width: 100% !important; }
-  .filter-bar-mobile {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 100%;
-  }
-  .filter-actions-mobile {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
+  .filter-bar-mobile { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .filter-actions-mobile { display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 6px; flex-wrap: wrap; }
   .filter-actions-mobile button { flex: 1; justify-content: center; }
   .desktop-table { display: none !important; }
-  .mobile-cards-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 4px 0;
-  }
-  .mobile-patient-card {
-    background: #fff;
-    border-radius: 10px;
-    border: 0.5px solid #e2e8f0;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    cursor: pointer;
-    transition: transform 0.1s, border-color 0.1s;
-  }
-  .mobile-patient-card:active {
-    transform: scale(0.99);
-    border-color: #1a56db;
-  }
-  .mobile-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  .mobile-card-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: 700;
-  }
-  .mobile-card-body {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    font-size: 12px;
-    color: #4a5568;
-    background: #f8fafc;
-    padding: 8px;
-    border-radius: 6px;
-  }
-  .mobile-card-body div {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  .mobile-cards-list { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+  .mobile-patient-card { background: #fff; border-radius: 10px; border: 0.5px solid #e2e8f0; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); cursor: pointer; transition: transform 0.1s, border-color 0.1s; }
+  .mobile-patient-card:active { transform: scale(0.99); border-color: #1a56db; }
+  .mobile-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .mobile-card-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+  .mobile-card-body { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 12px; color: #4a5568; background: #f8fafc; padding: 8px; border-radius: 6px; }
+  .mobile-card-body div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .modal-overlay { padding: 0 !important; }
-  .modal {
-    max-width: 100% !important;
-    min-height: 100vh !important;
-    border-radius: 0 !important;
-    display: flex;
-    flex-direction: column;
-  }
+  .modal { max-width: 100% !important; min-height: 100vh !important; border-radius: 0 !important; display: flex; flex-direction: column; }
   .modal-body { flex: 1 !important; max-height: none !important; }
   .grid2, .grid3, .grid4 { grid-template-columns: 1fr !important; }
 }
@@ -317,7 +183,7 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
-const APP_VERSION = "3.0.0 (Cloud Sync)";
+const APP_VERSION = "3.1.0 (Cloud Sync & Live Ops)";
 
 const firebaseConfig = {
   apiKey: "AIzaSyARu0PMH_qW56Xur4Iri6z_wnKAncg5xnM",
@@ -343,7 +209,8 @@ const DEFAULT = {
   deviceTypes: ['Desfibrilador', 'Marcapasos', 'Resincronizador'],
   brands: ['Biotronik', 'Boston Scientific', 'Medtronic', 'Sorin', 'ST Jude'],
   modes: [],
-  finances: { sessions: [], currentSession: null }
+  finances: { sessions: [], currentSession: null },
+  notes: { tasks: [], ideas: '' }
 };
 
 const sortArr = arr => [...new Set(arr)].filter(Boolean).sort((a,b)=>a.localeCompare(b,'es'));
@@ -642,7 +509,9 @@ function PatientForm({db,setDB,patient,onClose}){
     batteryType:'percent',batteryPct:'',batteryYears:'',batteryMonths:'',
     obs:'',consultas:[],createdAt:new Date().toISOString(),
     fallecido: false,
-    particular: false
+    particular: false,
+    ausenciasCount: 0,
+    ausenciasFechas: []
   });
   const[err,setErr]=useState('');
   const age=useMemo(()=>calcAge(form.dob),[form.dob]);
@@ -747,32 +616,155 @@ function PatientForm({db,setDB,patient,onClose}){
 }
 
 function ConsultaForm({patient,db,setDB,onClose}){
-  const[form,setForm]=useState({id:Date.now().toString(),date:todayStr(),brand:patient.brand||'',batteryType:patient.batteryType||'percent',batteryPct:patient.batteryPct||'',batteryYears:patient.batteryYears||'',batteryMonths:patient.batteryMonths||'',obs:'sin particularidades',particular:false});
-  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const currentSession = db.finances?.currentSession;
+  const sessionVal = currentSession?.consultaVal || 0;
+
+  const [form, setForm] = useState({
+    id: Date.now().toString(),
+    date: todayStr(),
+    brand: patient.brand || '',
+    batteryType: patient.batteryType || 'percent',
+    batteryPct: patient.batteryPct || '',
+    batteryYears: patient.batteryYears || '',
+    batteryMonths: patient.batteryMonths || '',
+    obs: 'sin particularidades',
+    particular: patient.particular || false,
+    pagoEstado: 'cobrado', // 'cobrado' | 'diferido'
+    pagoMetodo: 'efectivo', // 'efectivo' | 'transferencia'
+    pagoDestino: ''
+  });
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   function save(){
-    const updP={...patient,consultas:[...(patient.consultas||[]),{...form}],brand:form.brand,batteryType:form.batteryType,batteryPct:form.batteryPct,batteryYears:form.batteryYears,batteryMonths:form.batteryMonths};
-    let newDB={...db,patients:db.patients.map(p=>p.id===patient.id?updP:p)};
-    if(!form.particular&&newDB.finances?.currentSession){newDB.finances={...newDB.finances,currentSession:{...newDB.finances.currentSession,count:(newDB.finances.currentSession.count||0)+1}};}
-    setDB(newDB); onClose();
+    const consultaData = {
+      ...form,
+      monto: sessionVal
+    };
+
+    const updP = {
+      ...patient,
+      consultas: [...(patient.consultas || []), consultaData],
+      brand: form.brand,
+      batteryType: form.batteryType,
+      batteryPct: form.batteryPct,
+      batteryYears: form.batteryYears,
+      batteryMonths: form.batteryMonths,
+      ausenciasCount: 0 // Reseteo de ausencias al presentarse
+    };
+
+    let newDB = {
+      ...db,
+      patients: db.patients.map(p => p.id === patient.id ? updP : p)
+    };
+
+    // Si hay jornada activa y no es particular, computamos el cobro
+    if (!form.particular && currentSession) {
+      const pagoDetalle = {
+        consultaId: form.id,
+        patientId: patient.id,
+        pacienteNombre: `${patient.apellido}, ${patient.nombre}`,
+        estado: form.pagoEstado,
+        metodo: form.pagoMetodo,
+        destino: form.pagoDestino.trim(),
+        monto: sessionVal,
+        date: form.date
+      };
+
+      newDB.finances = {
+        ...newDB.finances,
+        currentSession: {
+          ...currentSession,
+          count: (currentSession.count || 0) + 1,
+          pagos: [...(currentSession.pagos || []), pagoDetalle]
+        }
+      };
+    }
+
+    setDB(newDB);
+    onClose();
   }
 
   return(
     <div className="modal-overlay" style={{zIndex:300}}>
       <div className="modal modal-sm">
-        <div className="modal-header"><span className="modal-title">Nueva Consulta</span><button className="btn btn-sm" onClick={onClose}>✕</button></div>
+        <div className="modal-header">
+          <span className="modal-title">Nueva Consulta</span>
+          <button className="btn btn-sm" onClick={onClose}>✕</button>
+        </div>
         <div className="modal-body">
-          <p style={{fontSize:13,color:'#718096',marginBottom:'1rem'}}>Paciente: <strong style={{color:'#1a202c'}}>{patient.apellido}, {patient.nombre}</strong></p>
+          <p style={{fontSize:13, color:'#718096', marginBottom:'1rem'}}>
+            Paciente: <strong style={{color:'#1a202c'}}>{patient.apellido}, {patient.nombre}</strong>
+          </p>
+
           <div className="grid2">
             <div className="form-group"><label>Fecha</label><input value={form.date} onChange={e=>set('date',e.target.value)}/></div>
             <div className="form-group"><label>Marca</label><select value={form.brand} onChange={e=>set('brand',e.target.value)}><option value="">—</option>{db.brands.map(b=><option key={b}>{b}</option>)}</select></div>
           </div>
+
           <div className="section-title">Batería en esta consulta</div>
           <BatteryFields form={form} set={set}/>
-          <div className="form-group" style={{marginTop:'.75rem'}}><label>Observaciones</label><textarea rows={3} value={form.obs} onChange={e=>set('obs',e.target.value)}/></div>
-          <label className="radio-label" style={{marginTop:'.5rem'}}><input type="checkbox" checked={form.particular} onChange={e=>set('particular',e.target.checked)}/><span>Consulta Particular <span style={{color:'#718096',fontWeight:400}}>(no impacta en finanzas)</span></span></label>
+
+          <div className="form-group" style={{marginTop:'.75rem'}}>
+            <label>Observaciones</label>
+            <textarea rows={2} value={form.obs} onChange={e=>set('obs',e.target.value)}/>
+          </div>
+
+          <div className="section-title" style={{marginTop:'1rem'}}>Cobro de la Consulta</div>
+
+          <label className="radio-label" style={{marginBottom:'.75rem'}}>
+            <input type="checkbox" checked={form.particular} onChange={e=>set('particular',e.target.checked)}/>
+            <span>Consulta Particular <span style={{color:'#718096', fontWeight:400}}>(no impacta en jornada ni honorarios de secretaria)</span></span>
+          </label>
+
+          {!form.particular && (
+            <div style={{background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px'}}>
+              <div className="grid2">
+                <div>
+                  <label style={{fontSize: '11px', color: '#64748b'}}>Estado del Pago</label>
+                  <select value={form.pagoEstado} onChange={e=>set('pagoEstado', e.target.value)}>
+                    <option value="cobrado">💵 Cobrado ahora</option>
+                    <option value="diferido">⏳ Pendiente / Diferido</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize: '11px', color: '#64748b'}}>Medio</label>
+                  <select 
+                    value={form.pagoMetodo} 
+                    onChange={e=>set('pagoMetodo', e.target.value)}
+                    disabled={form.pagoEstado === 'diferido'}
+                  >
+                    <option value="efectivo">Efectivo</option>
+                    <option value="transferencia">Transferencia</option>
+                  </select>
+                </div>
+              </div>
+
+              {form.pagoEstado === 'cobrado' && form.pagoMetodo === 'transferencia' && (
+                <div style={{marginTop: '4px'}}>
+                  <label style={{fontSize: '11px', color: '#64748b'}}>Cuenta o Destino (banco / billetera)</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ej: Mercado Pago, BAPRO, Santander..." 
+                    value={form.pagoDestino} 
+                    onChange={e=>set('pagoDestino', e.target.value)} 
+                    autoFocus
+                  />
+                </div>
+              )}
+
+              {form.pagoEstado === 'diferido' && (
+                <div style={{fontSize: '11px', color: '#b45309', background: '#fffbeb', padding: '6px 8px', borderRadius: '6px'}}>
+                  ℹ️ Se liquidará el 20% de la secretaria en el cierre de hoy. El cobro quedará pendiente para vos más adelante.
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        <div className="modal-footer"><button className="btn" onClick={onClose}>Cancelar</button><button className="btn btn-primary" onClick={save}>💾 Guardar Consulta</button></div>
+        <div className="modal-footer">
+          <button className="btn" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={save}>💾 Guardar Consulta</button>
+        </div>
       </div>
     </div>
   );
@@ -893,7 +885,7 @@ function AIReportGenerator({patient, onClose}) {
                 <div style={{flex:1}}><BatteryFields form={form} set={set} disabled={form.isERI || form.isEOL}/></div>
               </div>
               <div className="section-title">3. Arritmias Detectadas</div>
-              <div style={{display:'flex', gap:15, flexWrap:'wrap', marginBottom:15}}><label className="radio-label"><input type="checkbox" checked={form.arrPMT} onChange={e=>set('arrPMT',e.target.checked)}/> PMT</label><label className="radio-label"><input type="checkbox" checked={form.arrModo} onChange={e=>set('arrModo',e.target.checked)}/> Cambios de Modo</label><label className="radio-label"><input type="checkbox" checked={form.arrRuido} onChange={e=>set('arrRuido',e.target.checked)}/> Ruido Auricular</label><input style={{width:'auto', flex:1}} value={form.arrOtros} onChange={e=>set('arrOtros',e.target.value)} placeholder="Otras..."/></div>
+              <div style={{display:'flex', gap:15, flexWrap:'wrap', marginBottom:15}}><label className="radio-label"><input type="checkbox" checked={form.arrPMT} onChange={e=>set('arrPMT',e.target.checked)}/> PMT</label><label className="radio-label" style={{marginTop:5}}><input type="checkbox" checked={form.arrModo} onChange={e=>set('arrModo',e.target.checked)}/> Cambios de Modo</label><label className="radio-label" style={{marginTop:5}}><input type="checkbox" checked={form.arrRuido} onChange={e=>set('arrRuido',e.target.checked)}/> Ruido Auricular</label><input style={{width:'auto', flex:1}} value={form.arrOtros} onChange={e=>set('arrOtros',e.target.value)} placeholder="Otras..."/></div>
               <div className="section-title">4. Conclusión Automática</div>
               <div className="form-group"><textarea rows={2} value={form.conclusion} onChange={e=>set('conclusion',e.target.value)} style={{fontWeight:500}}/></div>
               <div className="form-group" style={{maxWidth:300}}><label>Próximo Control en</label><input value={form.nextControl} onChange={e=>set('nextControl',e.target.value)}/></div>
@@ -965,6 +957,12 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta, r
                   {[['Fecha de Nac.',patient.dob||'—'],['Edad',age?`${age} años`:'—'],['Teléfono',`${patient.telPrefix} ${patient.telNum}`+(patient.telOwner!=='Paciente'?` · ${patient.telOwner}: ${patient.telContact}`:'')],['Ciudad',patient.city||'—'],['Dirección',`${patient.street||''} ${patient.streetNum||''}`.trim()||'—']].map(([k,v])=>(
                     <div key={k} style={{display:'flex',gap:8,marginBottom:6,fontSize:13}}><span style={{color:'#718096',minWidth:100,fontWeight:500}}>{k}</span><span>{v}</span></div>
                   ))}
+                  {patient.ausenciasCount > 0 && (
+                    <div style={{marginTop: '10px', background: '#fffaf0', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fbd38d', fontSize: '12px', color: '#c05621'}}>
+                      <strong>Historial de Ausencias:</strong> {patient.ausenciasCount} inasistencias registradas.
+                      {patient.ultimaAusencia && <span style={{display: 'block', marginTop: '2px'}}>Última falta: {patient.ultimaAusencia}</span>}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="section-title">Dispositivo</div>
@@ -982,14 +980,24 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta, r
               {cs.length===0?(<div className="empty-state"><div className="empty-icon">📋</div><p>Sin consultas</p></div>):(
                 <div className="table-wrap">
                   <table>
-                    <thead><tr><th>Fecha</th><th>Marca</th><th>Batería</th><th>Observaciones</th><th>Tipo</th><th></th></tr></thead>
+                    <thead><tr><th>Fecha</th><th>Marca</th><th>Batería</th><th>Observaciones</th><th>Cobro</th><th></th></tr></thead>
                     <tbody>
                       {cs.map(c=>(
                         <tr key={c.id}>
                           <td style={{fontWeight:500}}>{c.date}</td><td>{c.brand||'—'}</td>
                           <td><span className={`badge ${c.batteryType==='time'?'badge-blue':'badge-green'}`}>{c.batteryType==='time'?`${c.batteryYears||0}a ${c.batteryMonths||0}m`:`${c.batteryPct||'—'}%`}</span></td>
-                          <td style={{maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#4a5568'}}>{c.obs}</td>
-                          <td>{c.particular?<span className="badge badge-yellow">Particular</span>:<span className="badge badge-gray">Normal</span>}</td>
+                          <td style={{maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'#4a5568'}}>{c.obs}</td>
+                          <td>
+                            {c.particular ? (
+                              <span className="badge badge-yellow">Particular</span>
+                            ) : c.pagoEstado === 'diferido' ? (
+                              <span className="badge badge-orange">⏳ Diferido</span>
+                            ) : c.pagoMetodo === 'transferencia' ? (
+                              <span className="badge badge-blue">📱 {c.pagoDestino || 'Transf.'}</span>
+                            ) : (
+                              <span className="badge badge-green">💵 Efectivo</span>
+                            )}
+                          </td>
                           <td>{role === 'admin' && <button className="btn btn-xs btn-danger" onClick={()=>deleteConsulta(c.id)}>✕</button>}</td>
                         </tr>
                       ))}
@@ -1015,33 +1023,96 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta, r
 
 function FinanceModule({db,setDB}){
   const { showConfirm, showAlert } = useDialog();
-  const[showOpen,setShowOpen]=useState(false);
-  const[consultaVal,setConsultaVal]=useState('');
-  const[alquilerVal,setAlquilerVal]=useState('');
-  const fin=db.finances||{sessions:[],currentSession:null};
-  const cs=fin.currentSession;
+  const [showOpen, setShowOpen] = useState(false);
+  const [consultaVal, setConsultaVal] = useState('');
+  const [alquilerVal, setAlquilerVal] = useState('');
+  const fin = db.finances || { sessions: [], currentSession: null };
+  const cs = fin.currentSession;
 
   async function start(){
-    const cv=parseFloat(consultaVal);const av=parseFloat(alquilerVal);
-    if(isNaN(cv)||cv<=0||isNaN(av)||av<=0){ await showAlert({title: 'Error', message: 'Ingresá valores válidos.'}); return; }
-    setDB({...db,finances:{...fin,currentSession:{id:Date.now().toString(),date:todayStr(),consultaVal:cv,alquilerVal:av,count:0}}});
-    setShowOpen(false);setConsultaVal('');setAlquilerVal('');
+    const cv = parseFloat(consultaVal);
+    const av = parseFloat(alquilerVal);
+    if(isNaN(cv) || cv <= 0 || isNaN(av) || av <= 0){
+      await showAlert({title: 'Error', message: 'Ingresá valores válidos.'});
+      return;
+    }
+    setDB({
+      ...db,
+      finances: {
+        ...fin,
+        currentSession: {
+          id: Date.now().toString(),
+          date: todayStr(),
+          consultaVal: cv,
+          alquilerVal: av,
+          count: 0,
+          pagos: []
+        }
+      }
+    });
+    setShowOpen(false);
+    setConsultaVal('');
+    setAlquilerVal('');
   }
+
+  const breakdown = useMemo(() => {
+    if (!cs) return null;
+    const pagos = cs.pagos || [];
+    let efectivo = 0;
+    let transferenciasTotal = 0;
+    const porCuenta = {};
+    const diferidosList = [];
+
+    pagos.forEach(p => {
+      if (p.estado === 'diferido') {
+        diferidosList.push(p);
+      } else if (p.metodo === 'transferencia') {
+        transferenciasTotal += p.monto;
+        const c = p.destino || 'Sin especificar';
+        porCuenta[c] = (porCuenta[c] || 0) + p.monto;
+      } else {
+        efectivo += p.monto;
+      }
+    });
+
+    const totalGenerado = cs.consultaVal * cs.count;
+    const secComision = totalGenerado * 0.2;
+    const secAlquilerAporte = cs.alquilerVal * 0.2;
+    const secNeto = secComision - secAlquilerAporte;
+
+    const miHonorarioBruto = totalGenerado * 0.8;
+    const miAlquilerAporte = cs.alquilerVal * 0.8;
+    const miNeto = miHonorarioBruto - miAlquilerAporte;
+
+    return {
+      totalGenerado,
+      efectivo,
+      transferenciasTotal,
+      porCuenta,
+      diferidosList,
+      diferidosTotal: diferidosList.length * cs.consultaVal,
+      secComision,
+      secAlquilerAporte,
+      secNeto,
+      miHonorarioBruto,
+      miAlquilerAporte,
+      miNeto
+    };
+  }, [cs]);
 
   async function close(){
     if(!cs) return;
     const ok = await showConfirm({
       title: 'Cerrar Jornada Clínica',
-      message: `¿Confirmás el cierre de la jornada con ${cs.count} pacientes atendidos?\n\nEsto registrará las ausencias de quienes no concurrieron y dejará la agenda limpia para el próximo control.`,
+      message: `¿Confirmás el cierre de la jornada con ${cs.count} pacientes?\n\nEsto procesará las ausencias de quienes figuraron en la agenda y la dejará limpia para el próximo mes.`,
       confirmText: 'Cerrar Jornada'
     });
     if(!ok) return;
 
     try {
-      // 1. Leemos la agenda actual para detectar a los ausentes
       const agendaSnap = await firestore.collection('mcp').doc('agenda').get();
       let updatedPatients = [...(db.patients || [])];
-      let ausentesDetectados = 0;
+      let ausentesCount = 0;
 
       if (agendaSnap.exists) {
         const agendaItems = agendaSnap.data().items || {};
@@ -1049,13 +1120,11 @@ function FinanceModule({db,setDB}){
 
         updatedPatients = updatedPatients.map(p => {
           const st = agendaItems[p.id];
-          // Si estaba marcado como "no viene", asentamos la ausencia
           if (st && st.noViene) {
-            ausentesDetectados++;
+            ausentesCount++;
             const count = (p.ausenciasCount || 0) + 1;
             const fechas = Array.isArray(p.ausenciasFechas) ? [...p.ausenciasFechas] : [];
             if (!fechas.includes(fechaJornada)) fechas.push(fechaJornada);
-
             return {
               ...p,
               ausenciasCount: count,
@@ -1066,108 +1135,185 @@ function FinanceModule({db,setDB}){
           return p;
         });
 
-        // 2. Vaciamos la agenda en Firebase para la próxima fecha
         await firestore.collection('mcp').doc('agenda').set({ items: {} });
       }
 
-      // 3. Borramos la fecha temporal guardada
       localStorage.removeItem('mcp_agenda_fecha');
 
-      // 4. Cerramos finanzas y guardamos la base actualizada
-      const totalRecaudado = cs.consultaVal * cs.count;
-      const updatedFinances = {
-        sessions: [
-          ...(fin.sessions || []),
-          {
-            ...cs,
-            total: totalRecaudado,
-            gananciaMio: totalRecaudado * 0.8,
-            gananciaSec: totalRecaudado * 0.2,
-            costoMio: cs.alquilerVal * 0.8,
-            costoSec: cs.alquilerVal * 0.2,
-            closedAt: new Date().toISOString()
-          }
-        ],
-        currentSession: null
+      const closedSession = {
+        ...cs,
+        totalGenerado: breakdown.totalGenerado,
+        efectivo: breakdown.efectivo,
+        transferenciasTotal: breakdown.transferenciasTotal,
+        porCuenta: breakdown.porCuenta,
+        diferidosList: breakdown.diferidosList,
+        diferidosTotal: breakdown.diferidosTotal,
+        gananciaSec: breakdown.secComision,
+        costoSec: breakdown.secAlquilerAporte,
+        netoSec: breakdown.secNeto,
+        gananciaMio: breakdown.miHonorarioBruto,
+        costoMio: breakdown.miAlquilerAporte,
+        netoMio: breakdown.miNeto,
+        closedAt: new Date().toISOString()
       };
 
       setDB({
         ...db,
         patients: updatedPatients,
-        finances: updatedFinances
+        finances: {
+          sessions: [...(fin.sessions || []), closedSession],
+          currentSession: null
+        }
       });
 
       await showAlert({
         title: 'Jornada Finalizada',
-        message: `✓ Jornada cerrada con éxito.\n✓ Se registraron ${ausentesDetectados} ausencias.\n✓ Agenda reseteada para el próximo mes.`
+        message: `✓ Jornada cerrada con éxito.\n✓ Se registraron ${ausentesCount} ausencias.\n✓ Agenda lista para el próximo mes.`
       });
 
     } catch (err) {
-      console.error("Error al cerrar la jornada:", err);
-      await showAlert({
-        title: 'Error',
-        message: 'Ocurrió un error al procesar el cierre: ' + err.message
-      });
+      console.error(err);
+      await showAlert({title: 'Error', message: 'Fallo al procesar el cierre: ' + err.message});
     }
   }
 
   async function deleteSession(sid){
     const ok = await showConfirm({title: 'Eliminar', message: '¿Eliminar este registro?', isDanger: true});
     if(!ok) return;
-    setDB({...db,finances:{...fin,sessions:(fin.sessions||[]).filter(s=>s.id!==sid)}});
+    setDB({...db, finances: {...fin, sessions: (fin.sessions || []).filter(s => s.id !== sid)}});
   }
 
-  const sessions=[...(fin.sessions||[])].reverse();
+  const sessions = [...(fin.sessions || [])].reverse();
+
   return(
     <div>
-      {showOpen&&(<div className="modal-overlay"><div className="modal modal-sm"><div className="modal-header"><span className="modal-title">Abrir Jornada</span><button className="btn btn-sm" onClick={()=>setShowOpen(false)}>✕</button></div><div className="modal-body"><div className="form-group"><label>Valor Consulta ($)</label><input type="number" value={consultaVal} onChange={e=>setConsultaVal(e.target.value)} autoFocus/></div><div className="form-group"><label>Valor Alquiler ($)</label><input type="number" value={alquilerVal} onChange={e=>setAlquilerVal(e.target.value)}/></div></div><div className="modal-footer"><button className="btn" onClick={()=>setShowOpen(false)}>Cancelar</button><button className="btn btn-primary" onClick={start}>Abrir Jornada</button></div></div></div>)}
-      {cs ? (
-        <div className="card finance-active">
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:'1rem'}}><div><div style={{fontWeight:700,fontSize:15,color:'#1a56db'}}>● Jornada Activa — {cs.date}</div><div style={{fontSize:11}}>Consulta: ${cs.consultaVal} · Alquiler: ${cs.alquilerVal}</div></div><button className="btn btn-danger btn-sm" onClick={close}>Cerrar Jornada</button></div>
-          <div className="grid2">
-            <div style={{background: '#f8fafc', padding: '12px', borderRadius: '10px'}}><div style={{fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '8px'}}>RECAUDACIÓN</div><div style={{display:'flex', justifyContent:'space-between'}}><span style={{fontSize:'13px'}}>Total:</span><strong>${(cs.consultaVal * cs.count).toLocaleString('es-AR')}</strong></div><div style={{display:'flex', justifyContent:'space-between', color:'#166534'}}><span style={{fontSize:'13px'}}>Mío (80%):</span><strong>${(cs.consultaVal * cs.count * 0.8).toLocaleString('es-AR')}</strong></div><div style={{display:'flex', justifyContent:'space-between', color:'#92400e'}}><span style={{fontSize:'13px'}}>Sec (20%):</span><strong>${(cs.consultaVal * cs.count * 0.2).toLocaleString('es-AR')}</strong></div></div>
-            <div style={{background: '#f8fafc', padding: '12px', borderRadius: '10px'}}><div style={{fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '8px'}}>GASTO ALQUILER</div><div style={{display:'flex', justifyContent:'space-between'}}><span style={{fontSize:'13px'}}>Total:</span><strong>${cs.alquilerVal.toLocaleString('es-AR')}</strong></div><div style={{display:'flex', justifyContent:'space-between', color:'#991b1b'}}><span style={{fontSize:'13px'}}>Mi aporte (80%):</span><strong>-${(cs.alquilerVal * 0.8).toLocaleString('es-AR')}</strong></div><div style={{display:'flex', justifyContent:'space-between', color:'#991b1b'}}><span style={{fontSize:'13px'}}>Sec aporte (20%):</span><strong>-${(cs.alquilerVal * 0.2).toLocaleString('es-AR')}</strong></div></div>
+      {showOpen && (
+        <div className="modal-overlay">
+          <div className="modal modal-sm">
+            <div className="modal-header">
+              <span className="modal-title">Abrir Jornada</span>
+              <button className="btn btn-sm" onClick={()=>setShowOpen(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group"><label>Valor Consulta ($)</label><input type="number" value={consultaVal} onChange={e=>setConsultaVal(e.target.value)} autoFocus/></div>
+              <div className="form-group"><label>Valor Alquiler Consultorio ($)</label><input type="number" value={alquilerVal} onChange={e=>setAlquilerVal(e.target.value)}/></div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn" onClick={()=>setShowOpen(false)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={start}>Abrir Jornada</button>
+            </div>
           </div>
-          <div style={{marginTop: '15px', paddingTop: '10px', borderTop: '1px dashed #cbd5e0', textAlign: 'center'}}><div style={{fontSize: '12px', color: '#64748b'}}>Ganancia Neta Personal:</div><div style={{fontSize: '22px', fontWeight: '800', color: '#1a56db'}}>${( (cs.consultaVal * cs.count * 0.8) - (cs.alquilerVal * 0.8) ).toLocaleString('es-AR')}</div></div>
         </div>
-      ) : (<div className="card" style={{textAlign:'center',padding:'2rem'}}><div style={{fontSize:40,marginBottom:'.5rem'}}>💼</div><p style={{color:'#718096',marginBottom:'1rem'}}>No hay jornada activa</p><button className="btn btn-primary" onClick={()=>setShowOpen(true)}>Abrir Jornada</button></div>)}
-      <div className="card"><div className="card-title">📊 Historial</div><div className="table-wrap"><table><thead><tr><th>Fecha</th><th>Recaudado</th><th>Mío (80%)</th><th>Sec (20%)</th><th>Alq.</th><th>Neto Mío</th><th></th></tr></thead><tbody>{sessions.map(s => (<tr key={s.id}><td>{s.date}</td><td>${(s.total||0).toLocaleString('es-AR')}</td><td style={{color:'#166534'}}>${(s.total * 0.8).toLocaleString('es-AR')}</td><td style={{color:'#92400e'}}>${(s.total * 0.2).toLocaleString('es-AR')}</td><td style={{fontSize: '11px'}}>${(s.alquilerVal * 0.8).toLocaleString('es-AR')} /${(s.alquilerVal * 0.2).toLocaleString('es-AR')}</td><td style={{fontWeight:700, color: '#1a56db'}}>${((s.total * 0.8) - (s.alquilerVal * 0.8)).toLocaleString('es-AR')}</td><td><button className="btn btn-xs btn-danger" onClick={()=>deleteSession(s.id)}>✕</button></td></tr>))}</tbody></table></div></div>
-    </div>
-  );
-}
+      )}
 
-function ConfigModule({db,setDB}){
-  const { showConfirm } = useDialog();
-  const[newCity,setNewCity]=useState(''); const[newBrand,setNewBrand]=useState(''); const[newType,setNewType]=useState(''); const[msg,setMsg]=useState('');
-  const[geminiKey, setKey] = useState(getGeminiKey()); const saveKey = () => { setGeminiKey(geminiKey); setMsg('API Key guardada en este navegador.'); };
+      {cs && breakdown ? (
+        <div className="card finance-active">
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem'}}>
+            <div>
+              <div style={{fontWeight:700, fontSize:15, color:'#1a56db'}}>● Jornada Activa — {cs.date}</div>
+              <div style={{fontSize:12, color:'#64748b'}}>
+                {cs.count} pacientes atendidos · Consulta: ${cs.consultaVal.toLocaleString('es-AR')} · Alquiler: ${cs.alquilerVal.toLocaleString('es-AR')}
+              </div>
+            </div>
+            <button className="btn btn-danger btn-sm" onClick={close}>Cerrar Jornada</button>
+          </div>
 
-  function add(key,val,setter){ const v=val.trim(); if(!v)return; if(db[key].includes(v)){setMsg(`"${v}" ya existe`);return} setDB({...db,[key]:sortArr([...db[key],v])}); setter('');setMsg(`Agregado`); }
-  async function remove(key,val){ const ok = await showConfirm({title: 'Eliminar', message: `¿Eliminar "${val}"?`, isDanger: true}); if(!ok) return; setDB({...db,[key]:db[key].filter(x=>x!==val)}); }
+          <div className="grid2" style={{marginBottom:'1rem'}}>
+            <div style={{background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0'}}>
+              <div style={{fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '8px'}}>HONORARIOS & ALQUILER</div>
+              <div style={{display:'flex', justifyContent:'space-between', marginBottom: 4}}><span style={{fontSize:'13px'}}>Total Generado:</span><strong>${breakdown.totalGenerado.toLocaleString('es-AR')}</strong></div>
+              <div style={{display:'flex', justifyContent:'space-between', color:'#166534', marginBottom: 4}}><span style={{fontSize:'13px'}}>Mío Bruto (80%):</span><strong>${breakdown.miHonorarioBruto.toLocaleString('es-AR')}</strong></div>
+              <div style={{display:'flex', justifyContent:'space-between', color:'#92400e', marginBottom: 6}}><span style={{fontSize:'13px'}}>Sec Bruto (20%):</span><strong>${breakdown.secComision.toLocaleString('es-AR')}</strong></div>
+              <div style={{borderTop:'1px dashed #cbd5e0', paddingTop:6, fontSize:'11px', color:'#991b1b'}}>
+                <div>Aporte Alquiler: Mío -${breakdown.miAlquilerAporte.toLocaleString('es-AR')} (80%) | Sec -${breakdown.secAlquilerAporte.toLocaleString('es-AR')} (20%)</div>
+              </div>
+              <div style={{borderTop:'1px solid #e2e8f0', marginTop:6, paddingTop:6, display:'flex', justifyContent:'space-between'}}>
+                <span style={{fontSize:'12px', fontWeight:600, color:'#92400e'}}>Pago a Secretaria hoy:</span>
+                <strong style={{color:'#92400e'}}>${breakdown.secNeto.toLocaleString('es-AR')}</strong>
+              </div>
+            </div>
 
-  function exportDB(){ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;a.download=`mcp_bolivar_${todayStr().replace(/\//g,'-')}.json`;a.click(); setMsg('Respaldo descargado'); }
+            <div style={{background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0'}}>
+              <div style={{fontSize: '11px', fontWeight: '700', color: '#64748b', marginBottom: '8px'}}>ARQUEO DE MEDIOS DE PAGO</div>
+              <div style={{display:'flex', justifyContent:'space-between', marginBottom: 4}}>
+                <span style={{fontSize:'13px'}}>💵 Efectivo en mano:</span>
+                <strong style={{color:'#166534'}}>${breakdown.efectivo.toLocaleString('es-AR')}</strong>
+              </div>
+              <div style={{display:'flex', justifyContent:'space-between', marginBottom: 4}}>
+                <span style={{fontSize:'13px'}}>📱 Transferencias:</span>
+                <strong>${breakdown.transferenciasTotal.toLocaleString('es-AR')}</strong>
+              </div>
+              {Object.keys(breakdown.porCuenta).map(c => (
+                <div key={c} style={{display:'flex', justifyContent:'space-between', fontSize:'11px', color:'#64748b', paddingLeft: 14}}>
+                  <span>↳ {c}:</span><span>${breakdown.porCuenta[c].toLocaleString('es-AR')}</span>
+                </div>
+              ))}
+              <div style={{borderTop:'1px dashed #cbd5e0', marginTop:6, paddingTop:6, display:'flex', justifyContent:'space-between', color:'#b45309'}}>
+                <span style={{fontSize:'12px', fontWeight:600}}>⏳ A cobrar diferido ({breakdown.diferidosList.length}):</span>
+                <strong>${breakdown.diferidosTotal.toLocaleString('es-AR')}</strong>
+              </div>
+              {breakdown.diferidosList.map((d, i) => (
+                <div key={i} style={{fontSize:'10px', color:'#b45309', paddingLeft: 14}}>
+                  ↳ {d.pacienteNombre} (${d.monto.toLocaleString('es-AR')})
+                </div>
+              ))}
+            </div>
+          </div>
 
-  function importDB(e) {
-    const f = e.target.files[0]; if (!f) return; const r = new FileReader();
-    r.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (!Array.isArray(data.patients)) throw new Error('Formato inválido: falta la lista de pacientes');
-        setDB(data); setMsg(`Importado exitosamente: ${data.patients.length} pacientes subidos a Firestore.`);
-      } catch (err) { setMsg('Error: ' + err.message); }
-    }; r.readAsText(f); e.target.value = '';
-  }
+          <div style={{paddingTop: '8px', borderTop: '1px dashed #cbd5e0', textAlign: 'center'}}>
+            <div style={{fontSize: '12px', color: '#64748b'}}>Ganancia Neta Personal (80% total menos 80% alquiler):</div>
+            <div style={{fontSize: '22px', fontWeight: '800', color: '#1a56db'}}>
+              ${breakdown.miNeto.toLocaleString('es-AR')}
+            </div>
+            {breakdown.diferidosTotal > 0 && (
+              <div style={{fontSize: '11px', color: '#b45309', marginTop: 2}}>
+                * De este monto, ${breakdown.diferidosTotal.toLocaleString('es-AR')} están pendientes de cobro directo para vos.
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="card" style={{textAlign:'center', padding:'2rem'}}>
+          <div style={{fontSize:40, marginBottom:'.5rem'}}>💼</div>
+          <p style={{color:'#718096', marginBottom:'1rem'}}>No hay jornada activa</p>
+          <button className="btn btn-primary" onClick={()=>setShowOpen(true)}>Abrir Jornada</button>
+        </div>
+      )}
 
-  return(
-    <div>
-      {msg&&<div className="alert alert-success" onClick={()=>setMsg('')} style={{cursor:'pointer'}}>✓ {msg}</div>}
-      <div className="card" style={{borderLeft: '4px solid #8b5cf6'}}>
-        <div className="card-title">🤖 IA (Informes)</div><div style={{display:'flex', gap:10}}><input type="password" value={geminiKey} onChange={e=>setKey(e.target.value)} placeholder="API Key..." style={{flex:1}}/><button className="btn btn-primary" onClick={saveKey}>Guardar</button></div>
-      </div>
-      <div className="card"><div className="card-title">📦 Importar / Exportar Nube</div><div style={{display:'flex',gap:8,marginBottom:'.75rem'}}><button className="btn btn-success" onClick={exportDB}>⬇ Exportar</button><label className="btn">⬆ Subir a la Nube<input type="file" accept=".json" onChange={importDB} style={{display:'none'}}/></label></div></div>
-      <div className="grid2">
-        {[{label:'Ciudades',key:'cities',val:newCity,set:setNewCity,ph:'Nueva'},{label:'Marcas',key:'brands',val:newBrand,set:setNewBrand,ph:'Nueva'},{label:'Tipos',key:'deviceTypes',val:newType,set:setNewType,ph:'Nuevo'}].map(({label,key,val,set,ph})=>(
-          <div className="card" key={key}><div className="card-title">{label}</div><div style={{display:'flex',gap:6,marginBottom:'.75rem'}}><input value={val} onChange={e=>set(e.target.value)} placeholder={ph}/><button className="btn btn-primary btn-sm" onClick={()=>add(key,val,set)}>+</button></div><div style={{display:'flex',flexWrap:'wrap',gap:5}}>{db[key].map(x=>( <span key={x} className="chip" style={{cursor:'pointer'}} onClick={()=>remove(key,x)}>{x} ×</span> ))}</div></div>
-        ))}
+      <div className="card">
+        <div className="card-title">📊 Historial de Jornadas</div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Pac.</th>
+                <th>Total Gen.</th>
+                <th>Efectivo</th>
+                <th>Transf.</th>
+                <th>Diferido</th>
+                <th>Neto Sec.</th>
+                <th>Neto Mío</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.map(s => (
+                <tr key={s.id}>
+                  <td>{s.date}</td>
+                  <td>{s.count || 0}</td>
+                  <td>${(s.totalGenerado || s.total || 0).toLocaleString('es-AR')}</td>
+                  <td style={{color:'#166534'}}>${(s.efectivo || 0).toLocaleString('es-AR')}</td>
+                  <td>${(s.transferenciasTotal || 0).toLocaleString('es-AR')}</td>
+                  <td style={{color:'#b45309'}}>${(s.diferidosTotal || 0).toLocaleString('es-AR')}</td>
+                  <td style={{color:'#92400e'}}>${(s.netoSec || s.gananciaSec || 0).toLocaleString('es-AR')}</td>
+                  <td style={{fontWeight:700, color: '#1a56db'}}>${(s.netoMio || (s.total * 0.8 - s.alquilerVal * 0.8) || 0).toLocaleString('es-AR')}</td>
+                  <td><button className="btn btn-xs btn-danger" onClick={()=>deleteSession(s.id)}>✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -1181,7 +1327,6 @@ function NotesModule({ db, setDB }) {
   const [ideasText, setIdeasText] = useState(notes.ideas || '');
   const [savedMsg, setSavedMsg] = useState(false);
 
-  // Guardar ideas en Firestore y localStorage
   const handleSaveIdeas = () => {
     const updated = { ...notes, ideas: ideasText };
     setDB({ ...db, notes: updated });
@@ -1189,7 +1334,6 @@ function NotesModule({ db, setDB }) {
     setTimeout(() => setSavedMsg(false), 2000);
   };
 
-  // Agregar una nueva tarea
   const addTask = (e) => {
     e.preventDefault();
     const txt = newTaskText.trim();
@@ -1205,7 +1349,6 @@ function NotesModule({ db, setDB }) {
     setNewTaskText('');
   };
 
-  // Alternar estado de completada
   const toggleTask = (taskId) => {
     const updatedTasks = (notes.tasks || []).map(t => 
       t.id === taskId ? { ...t, done: !t.done } : t
@@ -1213,7 +1356,6 @@ function NotesModule({ db, setDB }) {
     setDB({ ...db, notes: { ...notes, tasks: updatedTasks } });
   };
 
-  // Eliminar tarea
   const deleteTask = async (taskId) => {
     const ok = await showConfirm({
       title: 'Eliminar tarea',
@@ -1311,7 +1453,7 @@ function NotesModule({ db, setDB }) {
           <div>
             <textarea
               rows={12}
-              placeholder="Anota aquí ideas de diseño, flujos a mejorar, consultas sobre marcapasos o notas clínicas rápidas..."
+              placeholder="Anota aquí ideas de diseño, flujos a mejorar o notas rápidas..."
               value={ideasText}
               onChange={e => setIdeasText(e.target.value)}
               style={{fontFamily: 'monospace', fontSize: '13px', lineHeight: 1.5, resize: 'vertical'}}
@@ -1326,6 +1468,43 @@ function NotesModule({ db, setDB }) {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ConfigModule({db,setDB}){
+  const { showConfirm } = useDialog();
+  const[newCity,setNewCity]=useState(''); const[newBrand,setNewBrand]=useState(''); const[newType,setNewType]=useState(''); const[msg,setMsg]=useState('');
+  const[geminiKey, setKey] = useState(getGeminiKey()); const saveKey = () => { setGeminiKey(geminiKey); setMsg('API Key guardada en este navegador.'); };
+
+  function add(key,val,setter){ const v=val.trim(); if(!v)return; if(db[key].includes(v)){setMsg(`"${v}" ya existe`);return} setDB({...db,[key]:sortArr([...db[key],v])}); setter('');setMsg(`Agregado`); }
+  async function remove(key,val){ const ok = await showConfirm({title: 'Eliminar', message: `¿Eliminar "${val}"?`, isDanger: true}); if(!ok) return; setDB({...db,[key]:db[key].filter(x=>x!==val)}); }
+
+  function exportDB(){ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url;a.download=`mcp_bolivar_${todayStr().replace(/\//g,'-')}.json`;a.click(); setMsg('Respaldo descargado'); }
+
+  function importDB(e) {
+    const f = e.target.files[0]; if (!f) return; const r = new FileReader();
+    r.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data.patients)) throw new Error('Formato inválido: falta la lista de pacientes');
+        setDB(data); setMsg(`Importado exitosamente: ${data.patients.length} pacientes.`);
+      } catch (err) { setMsg('Error: ' + err.message); }
+    }; r.readAsText(f); e.target.value = '';
+  }
+
+  return(
+    <div>
+      {msg&&<div className="alert alert-success" onClick={()=>setMsg('')} style={{cursor:'pointer'}}>✓ {msg}</div>}
+      <div className="card" style={{borderLeft: '4px solid #8b5cf6'}}>
+        <div className="card-title">🤖 IA (Informes)</div><div style={{display:'flex', gap:10}}><input type="password" value={geminiKey} onChange={e=>setKey(e.target.value)} placeholder="API Key..." style={{flex:1}}/><button className="btn btn-primary" onClick={saveKey}>Guardar</button></div>
+      </div>
+      <div className="card"><div className="card-title">📦 Importar / Exportar Nube</div><div style={{display:'flex',gap:8,marginBottom:'.75rem'}}><button className="btn btn-success" onClick={exportDB}>⬇ Exportar</button><label className="btn">⬆ Subir a la Nube<input type="file" accept=".json" onChange={importDB} style={{display:'none'}}/></label></div></div>
+      <div className="grid2">
+        {[{label:'Ciudades',key:'cities',val:newCity,set:setNewCity,ph:'Nueva'},{label:'Marcas',key:'brands',val:newBrand,set:setNewBrand,ph:'Nueva'},{label:'Tipos',key:'deviceTypes',val:newType,set:setNewType,ph:'Nuevo'}].map(({label,key,val,set,ph})=>(
+          <div className="card" key={key}><div className="card-title">{label}</div><div style={{display:'flex',gap:6,marginBottom:'.75rem'}}><input value={val} onChange={e=>set(e.target.value)} placeholder={ph}/><button className="btn btn-primary btn-sm" onClick={()=>add(key,val,set)}>+</button></div><div style={{display:'flex',flexWrap:'wrap',gap:5}}>{db[key].map(x=>( <span key={x} className="chip" style={{cursor:'pointer'}} onClick={()=>remove(key,x)}>{x} ×</span> ))}</div></div>
+        ))}
       </div>
     </div>
   );
@@ -1422,12 +1601,111 @@ function PrintListModal({patients, onClose, onlyParticulares = false}){
   );
 }
 
+function EquiposDashboard({ db, agendaItems }) {
+  const hoy = todayStr();
+
+  const pacientesConsultorioHoy = useMemo(() => {
+    if (!db || !db.patients) return [];
+    return db.patients.filter(p => {
+      if (p.particular || p.fallecido) return false;
+      const st = agendaItems[p.id];
+      if (!st) return false;
+      return (st.confirmado || st.avisado) && !st.noViene;
+    });
+  }, [db?.patients, agendaItems]);
+
+  const { atendidos, restantes, marcasRestantes } = useMemo(() => {
+    let at = 0;
+    const rest = [];
+    const marcasMap = {};
+
+    pacientesConsultorioHoy.forEach(p => {
+      const yaAtendido = (p.consultas || []).some(c => c.date === hoy);
+      if (yaAtendido) {
+        at++;
+      } else {
+        rest.push(p);
+        const marca = (p.brand || 'Sin Marca').trim();
+        marcasMap[marca] = (marcasMap[marca] || 0) + 1;
+      }
+    });
+
+    return {
+      atendidos: at,
+      restantes: rest.length,
+      marcasRestantes: marcasMap
+    };
+  }, [pacientesConsultorioHoy, hoy]);
+
+  if (pacientesConsultorioHoy.length === 0) return null;
+
+  return (
+    <div className="card" style={{background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#fff', border: 'none', marginBottom: '0.75rem', padding: '1rem'}}>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '10px'}}>
+        <div>
+          <span style={{fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.6px', color: '#94a3b8', fontWeight: 700}}>
+            Monitor de Consultorio en Vivo
+          </span>
+          <div style={{fontSize: '18px', fontWeight: 800, color: '#f8fafc'}}>
+            {atendidos} de {pacientesConsultorioHoy.length} atendidos
+          </div>
+        </div>
+        <div style={{display: 'flex', gap: '8px'}}>
+          <div style={{background: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.4)', borderRadius: '8px', padding: '6px 12px', textAlign: 'center'}}>
+            <div style={{fontSize: '18px', fontWeight: 800, color: '#4ade80'}}>{atendidos}</div>
+            <div style={{fontSize: '10px', color: '#86efac', textTransform: 'uppercase'}}>Listos</div>
+          </div>
+          <div style={{background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '8px', padding: '6px 12px', textAlign: 'center'}}>
+            <div style={{fontSize: '18px', fontWeight: 800, color: '#f87171'}}>{restantes}</div>
+            <div style={{fontSize: '10px', color: '#fca5a5', textTransform: 'uppercase'}}>Restantes</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px'}}>
+        <div style={{fontSize: '11px', color: '#cbd5e1', marginBottom: '6px', fontWeight: 600}}>
+          Equipos pendientes de uso:
+        </div>
+        <div style={{display: 'flex', gap: '6px', flexWrap: 'wrap'}}>
+          {(db.brands || []).map(b => {
+            const count = marcasRestantes[b] || 0;
+            const listoParaGuardar = count === 0;
+
+            return (
+              <div 
+                key={b}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  background: listoParaGuardar ? 'rgba(255,255,255,0.06)' : 'rgba(59, 130, 246, 0.25)',
+                  border: listoParaGuardar ? '1px dashed rgba(255,255,255,0.2)' : '1px solid #3b82f6',
+                  color: listoParaGuardar ? '#64748b' : '#93c5fd'
+                }}
+              >
+                <span>{b}:</span>
+                <strong style={{color: listoParaGuardar ? '#94a3b8' : '#fff'}}>{count}</strong>
+                {listoParaGuardar && <span style={{fontSize: '10px', color: '#22c55e'}}>✓ Guardar</span>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App(){
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { showConfirm, showAlert } = useDialog();
   const [role, setRole] = useState(() => localStorage.getItem('mcp_role') || null);
   const [db, setDBRaw] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [agendaItems, setAgendaItems] = useState({});
 
   const[view,setView]=useState('patients');
   const[search,setSearch]=useState('');
@@ -1456,12 +1734,21 @@ function App(){
       console.error("Error al conectar con Firestore:", err);
       showAlert({title: "Error de conexión", message: "Problemas al conectar con Firestore: " + err.message});
     });
-    return () => unsubscribe();
+
+    const unsubAgenda = firestore.collection('mcp').doc('agenda').onSnapshot(doc => {
+      if (doc.exists) {
+        setAgendaItems(doc.data().items || {});
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      unsubAgenda();
+    };
   }, [role]);
 
   function setDB(newDB){
     setDBRaw(newDB); 
-    // Respaldo local instantáneo en cada guardado
     try {
       localStorage.setItem('mcpbolivar_v3', JSON.stringify(newDB));
     } catch(e) {
@@ -1506,14 +1793,9 @@ function App(){
       <div className="login-wrap">
         <div className="ecg-loader-wrap">
           <div className="ecg-heart-icon">❤️</div>
-          
           <svg className="ecg-svg-box" viewBox="0 0 300 80">
-            <path
-              className="ecg-line"
-              d="M 0,40 L 40,40 L 55,40 L 65,33 L 75,40 L 95,40 L 105,52 L 120,8 L 135,68 L 145,40 L 165,40 L 180,28 L 200,40 L 300,40"
-            />
+            <path className="ecg-line" d="M 0,40 L 40,40 L 55,40 L 65,33 L 75,40 L 95,40 L 105,52 L 120,8 L 135,68 L 145,40 L 165,40 L 180,28 L 200,40 L 300,40" />
           </svg>
-
           <span className="ecg-label">Sincronizando MCP Bolívar...</span>
         </div>
       </div>
@@ -1530,7 +1812,6 @@ function App(){
         <PatientDetail patientId={selectedId} db={db} setDB={setDB} role={role} onClose={() => {setSelectedId(null); setAutoOpenConsulta(false);}} onEdit={p => {setSelectedId(null); setEditPatient(p);}} initialOpenConsulta={autoOpenConsulta}/>
       )}
       
-      {/* MODAL DE IMPRESIÓN CON FILTRO DE PARTICULARES */}
       {showPrint && (
         <PrintListModal 
           patients={sorted} 
@@ -1545,7 +1826,6 @@ function App(){
           MCP Bolívar
         </div>
 
-        {/* BOTÓN AGENDA VISIBLE TANTO PARA ADMIN COMO PARA SECRETARIA */}
         <button 
           className="btn btn-sm" 
           style={{background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', marginLeft: '10px'}}
@@ -1554,7 +1834,6 @@ function App(){
           📋 Agenda y Confirmaciones
         </button>
         
-        {/* ELEMENTOS EXCLUSIVOS DEL ADMINISTRADOR (ESCRITORIO PC) */}
         {role === 'admin' && (
           <div className="desktop-nav-items" style={{display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto'}}>
             <button className={`nav-btn ${view === 'patients' ? 'active' : ''}`} onClick={()=>setView('patients')}>👥 Pacientes</button>
@@ -1566,16 +1845,12 @@ function App(){
           </div>
         )}
 
-        {/* ACCIONES PARA CELULAR Y SALIR (SECRETARIA) */}
         <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginLeft: role !== 'admin' ? 'auto' : '6px'}}>
-          
-          {/* BOTÓN +NUEVO Y HAMBURGUESA PARA CELULAR (SOLO ADMIN) */}
           {role === 'admin' && (
             <>
               <button className="nav-new mobile-menu-btn" style={{padding: '5px 10px', fontSize: '12px'}} onClick={()=>setShowNew(true)}>
                 + Nuevo
               </button>
-              
               <button 
                 className="btn btn-sm mobile-menu-btn" 
                 style={{background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', padding: '6px 10px'}}
@@ -1586,7 +1861,6 @@ function App(){
             </>
           )}
 
-          {/* BOTÓN SALIR SUELTO (SOLO SECRETARIA) */}
           {role === 'secre' && (
             <button 
               className="btn btn-sm" 
@@ -1599,47 +1873,23 @@ function App(){
         </div>
       </nav>
 
-      {/* MENÚ DESPLEGABLE MÓVIL (SOLO ADMIN) */}
       {mobileMenuOpen && role === 'admin' && (
         <div className="mobile-menu-drawer">
-          <button 
-            className={`nav-btn ${view === 'patients' ? 'active' : ''}`} 
-            onClick={() => { setView('patients'); setMobileMenuOpen(false); }}
-          >
-            👥 Pacientes
-          </button>
-          <button 
-            className={`nav-btn ${view === 'notes' ? 'active' : ''}`} 
-            onClick={() => { setView('notes'); setMobileMenuOpen(false); }}
-          >
-            📝 Bloc de Notas & Pendientes
-          </button>
-          <button 
-            className={`nav-btn ${view === 'finances' ? 'active' : ''}`} 
-            onClick={() => { setView('finances'); setMobileMenuOpen(false); }}
-          >
-            💼 Finanzas
-          </button>
-          <button 
-            className={`nav-btn ${view === 'config' ? 'active' : ''}`} 
-            onClick={() => { setView('config'); setMobileMenuOpen(false); }}
-          >
-            ⚙ Configuración
-          </button>
+          <button className={`nav-btn ${view === 'patients' ? 'active' : ''}`} onClick={() => { setView('patients'); setMobileMenuOpen(false); }}>👥 Pacientes</button>
+          <button className={`nav-btn ${view === 'notes' ? 'active' : ''}`} onClick={() => { setView('notes'); setMobileMenuOpen(false); }}>📝 Bloc de Notas</button>
+          <button className={`nav-btn ${view === 'finances' ? 'active' : ''}`} onClick={() => { setView('finances'); setMobileMenuOpen(false); }}>💼 Finanzas</button>
+          <button className={`nav-btn ${view === 'config' ? 'active' : ''}`} onClick={() => { setView('config'); setMobileMenuOpen(false); }}>⚙ Configuración</button>
           <div style={{height: '1px', background: 'rgba(255,255,255,0.15)', margin: '4px 0'}}></div>
-          <button 
-            className="nav-btn" 
-            style={{background: 'rgba(239,68,68,0.25)', color: '#fca5a5'}}
-            onClick={() => { setRole(null); localStorage.removeItem('mcp_role'); }}
-          >
-            🚪 Cerrar Sesión
-          </button>
+          <button className="nav-btn" style={{background: 'rgba(239,68,68,0.25)', color: '#fca5a5'}} onClick={() => { setRole(null); localStorage.removeItem('mcp_role'); }}>🚪 Cerrar Sesión</button>
         </div>
       )}
 
-     <div className="main">
+      <div className="main">
         {view==='patients'&&(
           <>
+            {/* PANEL EN VIVO DE ATENCIÓN Y EQUIPOS */}
+            <EquiposDashboard db={db} agendaItems={agendaItems} />
+
             <div className="card" style={{marginBottom: '0.75rem'}}>
               <div className="filter-bar-mobile">
                 <div className="search-wrap" style={{flex:1,minWidth:220}}>
@@ -1653,11 +1903,8 @@ function App(){
                     <button onClick={() => setSortBy('date')} style={{padding: '4px 8px', fontSize: '11px', borderRadius: '6px', border: 'none', background: sortBy === 'date' ? '#fff' : 'transparent', fontWeight: sortBy === 'date' ? '700' : '500', color: sortBy === 'date' ? '#1a56db' : '#64748b'}}>📅</button>
                   </div>
                   <span className="badge badge-blue" style={{fontSize:11, padding:'4px 8px'}}>{filtered.length} pac.</span>
-                  
-                  {/* BOTÓN WHATSAPP VISIBLE PARA AMBOS */}
                   <button className="btn btn-sm btn-success" onClick={()=>setShowWaList(true)}>📱 WhatsApp</button>
                   
-                  {/* BOTONES EXCLUSIVOS DEL ADMINISTRADOR */}
                   {role === 'admin' && (
                     <>
                       <button className="btn btn-sm btn-info" onClick={()=>{ setPrintParticularesOnly(true); setShowPrint(true); }}>🏠 Particulares</button>
@@ -1740,7 +1987,6 @@ function App(){
           </>
         )}
 
-        {/* VISTA DEL BLOC DE NOTAS Y PENDIENTES (SOLO ADMIN) */}
         {view==='notes' && role === 'admin' && (
           <>
             <h2 style={{fontSize: 18, marginBottom: '1rem'}}>📝 Bloc de Notas & Pendientes</h2>
