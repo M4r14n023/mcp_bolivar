@@ -87,65 +87,48 @@ const firebaseConfig = {
   appId: "1:398348426481:web:cca4a558deac9c01df1d50"
 };
 
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const firestore = firebase.firestore();
+
+function todayStr(){
+  const t = new Date();
+  return `${String(t.getDate()).padStart(2,'0')}/${String(t.getMonth()+1).padStart(2,'0')}/${t.getFullYear()}`;
+}
 
 function AgendaApp() {
   const [patients, setPatients] = useState([]);
   const [agendaState, setAgendaState] = useState({});
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('todos'); // 'todos' | 'confirmados' | 'avisados' | 'noVienen' | 'particulares'
+  const [filter, setFilter] = useState('todos'); 
   const [loading, setLoading] = useState(true);
 
   const [fechaConsulta, setFechaConsulta] = useState(() => localStorage.getItem('mcp_agenda_fecha') || '');
   const [timeModalPatient, setTimeModalPatient] = useState(null);
   const [inputTime, setInputTime] = useState('');
   const [showPrintModal, setShowPrintModal] = useState(false);
-  const [printType, setPrintType] = useState('consultorio'); // 'consultorio' | 'particulares'
+  const [printType, setPrintType] = useState('consultorio'); 
 
   useEffect(() => {
-    // 1. Escuchamos pacientes de mcp/main
     const unsubMain = firestore.collection('mcp').doc('main').onSnapshot(doc => {
       if (doc.exists) {
         const d = doc.data();
-        if (Array.isArray(d.patients)) {
-          setPatients(d.patients.filter(p => !p.fallecido));
-        }
+        if (Array.isArray(d.patients)) setPatients(d.patients.filter(p => !p.fallecido));
       }
       setLoading(false);
     });
 
-    // 2. Escuchamos el estado del llamado de mcp/agenda
     const unsubAgenda = firestore.collection('mcp').doc('agenda').onSnapshot(doc => {
-      if (doc.exists) {
-        setAgendaState(doc.data().items || {});
-      } else {
-        setAgendaState({});
-      }
+      if (doc.exists) setAgendaState(doc.data().items || {});
+      else setAgendaState({});
     });
 
-    return () => {
-      unsubMain();
-      unsubAgenda();
-    };
+    return () => { unsubMain(); unsubAgenda(); };
   }, []);
 
   const savePatientState = async (patientId, newObj) => {
-    const updated = {
-      ...agendaState,
-      [patientId]: {
-        ...(agendaState[patientId] || {}),
-        ...newObj
-      }
-    };
+    const updated = { ...agendaState, [patientId]: { ...(agendaState[patientId] || {}), ...newObj } };
     setAgendaState(updated);
-    try {
-      await firestore.collection('mcp').doc('agenda').set({ items: updated }, { merge: true });
-    } catch (err) {
-      console.error("Error guardando estado de agenda:", err);
-    }
+    try { await firestore.collection('mcp').doc('agenda').set({ items: updated }, { merge: true }); } catch (err) { }
   };
 
   const handleDateChange = (val) => {
@@ -156,11 +139,9 @@ function AgendaApp() {
   const sendWhatsApp = (p) => {
     let phone = `${p.telPrefix || ''}${p.telNum || ''}`.replace(/\D/g, '');
     if (phone.length >= 10 && !phone.startsWith('54')) phone = `549${phone}`;
-    
     const contactName = p.telOwner === 'Paciente' ? p.nombre : (p.telContact || 'Familiar');
     const fechaTxt = fechaConsulta ? ` el *${fechaConsulta}*` : ' en la próxima fecha';
     const msg = `Hola ${contactName}, nos comunicamos de MCP Bolívar para coordinar el próximo control de marcapasos${fechaTxt}. ¿Podrás asistir? Aguardamos tu confirmación.`;
-    
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -170,37 +151,21 @@ function AgendaApp() {
 
     if (field === 'confirmado') {
       if (!current) {
-        // Al querer confirmar, pedimos horario y apagaremos Avisado y No viene
         setInputTime(st.time || '');
         setTimeModalPatient(patient);
       } else {
-        // Desmarcar confirmado -> vuelve a sin estado
         savePatientState(patient.id, { confirmado: false, time: '' });
       }
     } else if (field === 'noViene') {
       if (!current) {
-        // Activar No viene -> apaga confirmado (borra hora) y apaga avisado
-        savePatientState(patient.id, {
-          noViene: true,
-          confirmado: false,
-          avisado: false,
-          time: ''
-        });
+        savePatientState(patient.id, { noViene: true, confirmado: false, avisado: false, time: '' });
       } else {
-        // Desmarcar No viene -> vuelve a sin estado
         savePatientState(patient.id, { noViene: false });
       }
     } else if (field === 'avisado') {
       if (!current) {
-        // Activar Avisado -> apaga confirmado (borra hora) y apaga No viene
-        savePatientState(patient.id, {
-          avisado: true,
-          confirmado: false,
-          noViene: false,
-          time: ''
-        });
+        savePatientState(patient.id, { avisado: true, confirmado: false, noViene: false, time: '' });
       } else {
-        // Desmarcar Avisado -> vuelve a sin estado
         savePatientState(patient.id, { avisado: false });
       }
     }
@@ -208,57 +173,48 @@ function AgendaApp() {
 
   const confirmTimeAssignment = () => {
     if (!timeModalPatient) return;
-    // Confirmar turno apaga automáticamente avisado y noViene
-    savePatientState(timeModalPatient.id, {
-      confirmado: true,
-      time: inputTime.trim(),
-      avisado: false,
-      noViene: false
-    });
+    savePatientState(timeModalPatient.id, { confirmado: true, time: inputTime.trim(), avisado: false, noViene: false });
     setTimeModalPatient(null);
     setInputTime('');
   };
 
-  // Enriquecemos cada paciente con su estado actual de llamada
   const enrichedList = useMemo(() => {
+    const hoy = todayStr();
     return patients.map(p => {
       const st = agendaState[p.id] || {};
+      const yaAtendido = (p.consultas || []).some(c => c.date === hoy);
+
       return {
         ...p,
         confirmado: !!st.confirmado,
         avisado: !!st.avisado,
         noViene: !!st.noViene,
-        time: st.time || ''
+        time: st.time || '',
+        atendidoHoy: yaAtendido
       };
     });
   }, [patients, agendaState]);
 
-  // Contadores para las píldoras
-  // Contadores exactos y mutuamente excluyentes
   const counts = useMemo(() => {
-    let conf = 0, avis = 0, noV = 0, sinLlamar = 0, part = 0;
+    let conf = 0, avis = 0, noV = 0, sinLlamar = 0, part = 0, atendidos = 0;
     enrichedList.forEach(p => {
       if (p.particular) part++;
-      if (p.noViene) {
-        noV++;
-      } else if (p.confirmado) {
-        conf++;
-      } else if (p.avisado) {
-        avis++;
-      } else {
-        sinLlamar++;
-      }
+      if (p.atendidoHoy) atendidos++;
+      if (p.noViene) noV++;
+      else if (p.confirmado) conf++;
+      else if (p.avisado) avis++;
+      else sinLlamar++;
     });
-    return { conf, avis, noV, sinLlamar, part, total: enrichedList.length };
+    return { conf, avis, noV, sinLlamar, part, atendidos, total: enrichedList.length };
   }, [enrichedList]);
 
-  // Filtrado reactivo sin solapamientos
   const filtered = useMemo(() => {
     return enrichedList.filter(p => {
       const q = search.trim().toLowerCase();
       const matchSearch = !q || (p.apellido + ' ' + p.nombre).toLowerCase().includes(q);
       if (!matchSearch) return false;
 
+      if (filter === 'atendidos') return p.atendidoHoy;
       if (filter === 'confirmados') return p.confirmado && !p.noViene;
       if (filter === 'avisados') return p.avisado && !p.confirmado && !p.noViene;
       if (filter === 'noVienen') return p.noViene;
@@ -266,32 +222,21 @@ function AgendaApp() {
       if (filter === 'particulares') return p.particular;
       return true;
     }).sort((a, b) => {
-      if (filter === 'confirmados' && a.time && b.time) {
-        return a.time.localeCompare(b.time);
-      }
+      if (filter === 'confirmados' && a.time && b.time) return a.time.localeCompare(b.time);
       return (a.apellido + a.nombre).localeCompare(b.apellido + b.nombre, 'es');
     });
   }, [enrichedList, search, filter]);
 
-  // Listas preparadas para impresión
   const printConsultorioList = useMemo(() => {
-    return enrichedList
-      .filter(p => !p.particular && p.confirmado)
-      .sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+    return enrichedList.filter(p => !p.particular && p.confirmado).sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
   }, [enrichedList]);
 
   const printParticularesList = useMemo(() => {
-    return enrichedList
-      .filter(p => p.particular && p.confirmado)
-      .sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+    return enrichedList.filter(p => p.particular && p.confirmado).sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
   }, [enrichedList]);
 
   if (loading) {
-    return (
-      <div style={{display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', color:'#0d9488', fontWeight:600}}>
-        Cargando Agenda MCP Bolívar...
-      </div>
-    );
+    return <div style={{display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', color:'#0d9488', fontWeight:600}}>Cargando Agenda MCP Bolívar...</div>;
   }
 
   return (
@@ -312,196 +257,111 @@ function AgendaApp() {
       </nav>
 
       <div className="main">
-        {/* BARRA SUPERIOR DE FECHA */}
         <div className="card no-print" style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', background:'#f8fafc'}}>
           <span style={{fontSize:13, fontWeight:600, color:'#475569'}}>📅 Fecha de la jornada:</span>
-          <input 
-            type="text" 
-            placeholder="Ej: Jueves 15 de Octubre" 
-            value={fechaConsulta} 
-            onChange={e => handleDateChange(e.target.value)}
-            style={{padding:'6px 10px', borderRadius:6, border:'1px solid #cbd5e0', fontSize:13, flex:1, maxWidth:260}}
-          />
+          <input type="text" placeholder="Ej: Jueves 15 de Octubre" value={fechaConsulta} onChange={e => handleDateChange(e.target.value)} style={{padding:'6px 10px', borderRadius:6, border:'1px solid #cbd5e0', fontSize:13, flex:1, maxWidth:260}}/>
         </div>
 
-        {/* BUSCADOR */}
         <div className="search-wrap no-print">
           <span className="search-icon">🔍</span>
-          <input 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            placeholder="Buscar por apellido o nombre..." 
-          />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por apellido o nombre..." />
         </div>
 
-        {/* PÍLDORAS DE FILTRADO */}
         <div className="filter-pills no-print">
-          <button className={`pill ${filter === 'todos' ? 'active' : ''}`} onClick={() => setFilter('todos')}>
-            Todos ({counts.total})
-          </button>
-          <button className={`pill ${filter === 'sinLlamar' ? 'active' : ''}`} onClick={() => setFilter('sinLlamar')}>
-            ⚪ Sin llamar ({counts.sinLlamar})
-          </button>
-          <button className={`pill ${filter === 'avisados' ? 'active' : ''}`} onClick={() => setFilter('avisados')}>
-            ⏳ Avisados ({counts.avis})
-          </button>
-          <button className={`pill ${filter === 'confirmados' ? 'active' : ''}`} onClick={() => setFilter('confirmados')}>
-            ✓ Confirmados ({counts.conf})
-          </button>
-          <button className={`pill ${filter === 'noVienen' ? 'active' : ''}`} onClick={() => setFilter('noVienen')}>
-            ✕ No vienen ({counts.noV})
-          </button>
-          <button className={`pill ${filter === 'particulares' ? 'active' : ''}`} onClick={() => setFilter('particulares')}>
-            🏠 Particulares ({counts.part})
-          </button>
+          <button className={`pill ${filter === 'todos' ? 'active' : ''}`} onClick={() => setFilter('todos')}>Todos ({counts.total})</button>
+          <button className={`pill ${filter === 'sinLlamar' ? 'active' : ''}`} onClick={() => setFilter('sinLlamar')}>⚪ Sin llamar ({counts.sinLlamar})</button>
+          <button className={`pill ${filter === 'avisados' ? 'active' : ''}`} onClick={() => setFilter('avisados')}>⏳ Avisados ({counts.avis})</button>
+          <button className={`pill ${filter === 'confirmados' ? 'active' : ''}`} onClick={() => setFilter('confirmados')}>✓ Confirmados ({counts.conf})</button>
+          <button className={`pill ${filter === 'noVienen' ? 'active' : ''}`} onClick={() => setFilter('noVienen')}>✕ No vienen ({counts.noV})</button>
+          <button className={`pill ${filter === 'atendidos' ? 'active' : ''}`} onClick={() => setFilter('atendidos')}>✅ Atendidos Hoy ({counts.atendidos})</button>
+          <button className={`pill ${filter === 'particulares' ? 'active' : ''}`} onClick={() => setFilter('particulares')}>🏠 Particulares ({counts.part})</button>
         </div>
 
-        {/* LISTADO DE PACIENTES */}
         <div className="no-print">
-          {filtered.length === 0 && (
-            <div style={{textAlign:'center', padding:'3rem', color:'#94a3b8'}}>
-              No se encontraron pacientes para este filtro.
-            </div>
-          )}
+          {filtered.length === 0 && <div style={{textAlign:'center', padding:'3rem', color:'#94a3b8'}}>No se encontraron pacientes para este filtro.</div>}
 
           {filtered.map(p => (
-            <div 
-              key={p.id} 
-              className={`patient-card ${p.confirmado ? 'is-confirmed' : ''} ${p.noViene ? 'is-no-viene' : ''} ${p.avisado && !p.confirmado ? 'is-avisado' : ''}`}
-            >
+            <div key={p.id} className={`patient-card ${p.atendidoHoy ? '' : p.confirmado ? 'is-confirmed' : ''} ${p.noViene ? 'is-no-viene' : ''} ${p.avisado && !p.confirmado ? 'is-avisado' : ''}`} style={{ borderLeft: p.atendidoHoy ? '5px solid #059669' : undefined, background: p.atendidoHoy ? '#ecfdf5' : undefined }}>
               <div className="patient-header">
                 <div>
                   <div className="patient-name" style={{textDecoration: p.noViene ? 'line-through' : 'none'}}>
                     {p.apellido}, {p.nombre}
                     {p.particular && <span className="badge-part">🏠 Particular</span>}
                     {p.time && <span className="badge-time">⏰ {p.time} hs</span>}
+                    {p.atendidoHoy && <span style={{ background: '#d1fae5', color: '#065f46', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>✓ ATENDIDO</span>}
                   </div>
                   <div className="patient-sub">
                     📞 {p.telPrefix} {p.telNum} {p.telOwner !== 'Paciente' ? `(${p.telOwner}: ${p.telContact})` : ''} · {p.brand || 'Sin marca'}
                   </div>
                   {p.ausenciasCount > 0 && !p.noViene && (
                     <div style={{fontSize:11, color:'#c2410c', fontWeight:600, marginTop:2}}>
-                      ⚠️ Registra {p.ausenciasCount} {p.ausenciasCount === 1 ? 'inasistencia previa' : 'inasistencias previas'}
-                      {p.ultimaAusencia ? ` (${p.ultimaAusencia})` : ''}
+                      ⚠️ Registra {p.ausenciasCount} {p.ausenciasCount === 1 ? 'inasistencia previa' : 'inasistencias previas'} {p.ultimaAusencia ? ` (${p.ultimaAusencia})` : ''}
                     </div>
                   )}
                 </div>
               </div>
 
               <div className="btn-actions">
-                <button className="btn btn-wa" onClick={() => sendWhatsApp(p)}>
-                  📱 WhatsApp
-                </button>
-                <button 
-                  className={`btn btn-check ${p.confirmado ? 'active' : ''}`} 
-                  onClick={() => updateStatus(p, 'confirmado')}
-                >
-                  {p.confirmado ? `✓ Confirmado (${p.time || 'sin hora'})` : 'Confirmar'}
-                </button>
-                <button 
-                  className={`btn btn-warn ${p.avisado ? 'active' : ''}`} 
-                  onClick={() => updateStatus(p, 'avisado')}
-                >
-                  {p.avisado ? '✓ Avisado' : 'Avisar'}
-                </button>
-                <button 
-                  className={`btn btn-danger ${p.noViene ? 'active' : ''}`} 
-                  onClick={() => updateStatus(p, 'noViene')}
-                >
-                  {p.noViene ? '✕ No viene' : 'No viene'}
-                </button>
+                <button className="btn btn-wa" onClick={() => sendWhatsApp(p)}>📱 WhatsApp</button>
+                <button className={`btn btn-check ${p.confirmado ? 'active' : ''}`} onClick={() => updateStatus(p, 'confirmado')}>{p.confirmado ? `✓ Confirmado (${p.time || 'sin hora'})` : 'Confirmar'}</button>
+                <button className={`btn btn-warn ${p.avisado ? 'active' : ''}`} onClick={() => updateStatus(p, 'avisado')}>{p.avisado ? '✓ Avisado' : 'Avisar'}</button>
+                <button className={`btn btn-danger ${p.noViene ? 'active' : ''}`} onClick={() => updateStatus(p, 'noViene')}>{p.noViene ? '✕ No viene' : 'No viene'}</button>
               </div>
             </div>
           ))}
         </div>
 
-        {/* MODAL ASIGNAR HORARIO */}
         {timeModalPatient && (
           <div className="modal-overlay no-print">
             <div className="modal">
               <div className="modal-title">⏰ Asignar Horario</div>
-              <p style={{fontSize:13, color:'#64748b', marginBottom:12}}>
-                Paciente: <strong>{timeModalPatient.apellido}, {timeModalPatient.nombre}</strong>
-              </p>
-              <input 
-                type="text" 
-                placeholder="Ej: 14:30 o 15:00" 
-                value={inputTime} 
-                onChange={e => setInputTime(e.target.value)}
-                autoFocus
-                style={{width:'100%', padding:'9px 12px', border:'1px solid #cbd5e0', borderRadius:8, fontSize:14}}
-              />
+              <p style={{fontSize:13, color:'#64748b', marginBottom:12}}>Paciente: <strong>{timeModalPatient.apellido}, {timeModalPatient.nombre}</strong></p>
+              <input type="text" placeholder="Ej: 14:30 o 15:00" value={inputTime} onChange={e => setInputTime(e.target.value)} autoFocus style={{width:'100%', padding:'9px 12px', border:'1px solid #cbd5e0', borderRadius:8, fontSize:14}}/>
               <div className="modal-footer">
                 <button className="btn" onClick={() => setTimeModalPatient(null)}>Cancelar</button>
-                <button className="btn" style={{background:'#16a34a', color:'#fff', borderColor:'#16a34a'}} onClick={confirmTimeAssignment}>
-                  Confirmar Turno
-                </button>
+                <button className="btn" style={{background:'#16a34a', color:'#fff', borderColor:'#16a34a'}} onClick={confirmTimeAssignment}>Confirmar Turno</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* MODAL VISTA PREVIA IMPRESIÓN */}
         {showPrintModal && (
           <div className="modal-overlay no-print">
             <div className="modal" style={{maxWidth:600}}>
-              <div className="modal-title">
-                {printType === 'consultorio' ? '📋 Planilla de Consultorio' : '🏠 Planilla de Domicilios'}
-              </div>
-              <p style={{fontSize:13, color:'#64748b', marginBottom:10}}>
-                Total confirmados: {printType === 'consultorio' ? printConsultorioList.length : printParticularesList.length}
-              </p>
+              <div className="modal-title">{printType === 'consultorio' ? '📋 Planilla de Consultorio' : '🏠 Planilla de Domicilios'}</div>
+              <p style={{fontSize:13, color:'#64748b', marginBottom:10}}>Total confirmados: {printType === 'consultorio' ? printConsultorioList.length : printParticularesList.length}</p>
               <div style={{maxHeight:300, overflowY:'auto', border:'1px solid #e2e8f0', borderRadius:8, padding:8, marginBottom:12, fontSize:12}}>
-                {(printType === 'consultorio' ? printConsultorioList : printParticularesList).map((p, i) => (
+                {(printType === 'consultorio' ? printConsultorioList : printParticularesList).map((p) => (
                   <div key={p.id} style={{padding:'4px 0', borderBottom:'1px solid #f1f5f9', display:'flex', justifyContent:'space-between'}}>
-                    <span><strong>{p.time || '—'}</strong> · {p.apellido}, {p.nombre}</span>
-                    <span style={{color:'#64748b'}}>{printType === 'particulares' ? `${p.street || ''} ${p.streetNum || ''}` : p.brand}</span>
+                    <span><strong>{p.time || '—'}</strong> · {p.apellido}, {p.nombre}</span><span style={{color:'#64748b'}}>{printType === 'particulares' ? `${p.street || ''} ${p.streetNum || ''}` : p.brand}</span>
                   </div>
                 ))}
               </div>
               <div className="modal-footer">
                 <button className="btn" onClick={() => setShowPrintModal(false)}>Cerrar</button>
-                <button className="btn" style={{background:'#0d9488', color:'#fff', borderColor:'#0d9488'}} onClick={() => window.print()}>
-                  🖨 Mandar a Imprimir
-                </button>
+                <button className="btn" style={{background:'#0d9488', color:'#fff', borderColor:'#0d9488'}} onClick={() => window.print()}>🖨 Mandar a Imprimir</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* VISTAS EXCLUSIVAS PARA IMPRESORA */}
         <div className="print-header">
           <h2>MCP Bolívar — {printType === 'consultorio' ? 'Planilla de Consultorio' : 'Controles a Domicilio (Particulares)'}</h2>
           <div>Fecha: {fechaConsulta || 'Jornada Programada'}</div>
         </div>
 
         <table className="print-table">
-          <thead>
-            <tr>
-              <th style={{width:60}}>Hora</th>
-              <th>Paciente</th>
-              {printType === 'particulares' ? <th>Dirección</th> : <th>Marca / Disp.</th>}
-              <th>Teléfono</th>
-              <th style={{width:100}}>Firma / Observación</th>
-            </tr>
-          </thead>
+          <thead><tr><th style={{width:60}}>Hora</th><th>Paciente</th>{printType === 'particulares' ? <th>Dirección</th> : <th>Marca / Disp.</th>}<th>Teléfono</th><th style={{width:100}}>Firma / Observación</th></tr></thead>
           <tbody>
             {(printType === 'consultorio' ? printConsultorioList : printParticularesList).map(p => (
               <tr key={p.id}>
-                <td><strong>{p.time || '—'}</strong></td>
-                <td>{p.apellido}, {p.nombre}</td>
-                {printType === 'particulares' ? (
-                  <td>{`${p.street || ''} ${p.streetNum || ''}`.trim() || '—'} ({p.city})</td>
-                ) : (
-                  <td>{p.brand || '—'} ({p.deviceType})</td>
-                )}
-                <td>{p.telPrefix} {p.telNum}</td>
-                <td></td>
+                <td><strong>{p.time || '—'}</strong></td><td>{p.apellido}, {p.nombre}</td>
+                {printType === 'particulares' ? <td>{`${p.street || ''} ${p.streetNum || ''}`.trim() || '—'} ({p.city})</td> : <td>{p.brand || '—'} ({p.deviceType})</td>}
+                <td>{p.telPrefix} {p.telNum}</td><td></td>
               </tr>
             ))}
           </tbody>
         </table>
-
       </div>
     </div>
   );

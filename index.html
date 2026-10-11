@@ -183,7 +183,7 @@ input[type=checkbox]{width:auto;accent-color:#1a56db}
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
-const APP_VERSION = "3.1.0 (Cloud Sync & Live Ops)";
+const APP_VERSION = "3.2.0 (Cloud Sync & Live Ops)";
 
 const firebaseConfig = {
   apiKey: "AIzaSyARu0PMH_qW56Xur4Iri6z_wnKAncg5xnM",
@@ -201,17 +201,6 @@ const firestore = firebase.firestore();
 
 function getGeminiKey() { return localStorage.getItem('mcp_gemini_key') || ''; }
 function setGeminiKey(key) { localStorage.setItem('mcp_gemini_key', key); }
-
-const DEFAULT = {
-  patients: [],
-  cities: ['Bolívar', 'Henderson', 'Pirovano', 'Urdampilleta'],
-  streets: [],
-  deviceTypes: ['Desfibrilador', 'Marcapasos', 'Resincronizador'],
-  brands: ['Biotronik', 'Boston Scientific', 'Medtronic', 'Sorin', 'ST Jude'],
-  modes: [],
-  finances: { sessions: [], currentSession: null },
-  notes: { tasks: [], ideas: '' }
-};
 
 const sortArr = arr => [...new Set(arr)].filter(Boolean).sort((a,b)=>a.localeCompare(b,'es'));
 
@@ -295,25 +284,65 @@ function todayStr(){
   return`${String(t.getDate()).padStart(2,'0')}/${String(t.getMonth()+1).padStart(2,'0')}/${t.getFullYear()}`;
 }
 
-function batteryDisplay(p){
-  if(!p)return'—';
-  if(p.batteryType==='time'){
-    const y=p.batteryYears??'';const m=p.batteryMonths??'';
-    if(y===''&&m==='')return'—';
-    return`${y!==''?y+'a ':''} ${m!==''?m+'m':''}`.trim();
+function getLatestBattery(p) {
+  if (!p) return null;
+  const cs = p.consultas || [];
+  if (cs.length > 0) {
+    const last = cs[cs.length - 1];
+    return {
+      type: last.batteryType || p.batteryType || 'percent',
+      pct: last.batteryPct !== undefined && last.batteryPct !== '' ? last.batteryPct : p.batteryPct,
+      years: last.batteryYears !== undefined && last.batteryYears !== '' ? last.batteryYears : p.batteryYears,
+      months: last.batteryMonths !== undefined && last.batteryMonths !== '' ? last.batteryMonths : p.batteryMonths
+    };
   }
-  return p.batteryPct!==''&&p.batteryPct!==undefined?`${p.batteryPct}%`:'—';
+  return {
+    type: p.batteryType || 'percent',
+    pct: p.batteryPct,
+    years: p.batteryYears,
+    months: p.batteryMonths
+  };
+}
+
+function batteryDisplay(p){
+  const bat = getLatestBattery(p);
+  if (!bat) return '—';
+
+  if (bat.type === 'time') {
+    const y = bat.years ?? '';
+    const m = bat.months ?? '';
+    if (y === '' && m === '') return '—';
+    return `${y !== '' ? y + 'a ' : ''}${m !== '' ? m + 'm' : ''}`.trim() || '—';
+  }
+  return bat.pct !== '' && bat.pct !== undefined ? `${bat.pct}%` : '—';
 }
 
 function batteryColor(p){
-  if(p.batteryType==='percent'){
-    const v=parseFloat(p.batteryPct);
-    if(isNaN(v))return'badge-gray';
-    if(v>=50)return'badge-green';
-    if(v>=25)return'badge-yellow';
-    return'badge-red';
+  const bat = getLatestBattery(p);
+  if (!bat) return 'badge-gray';
+
+  if (bat.type === 'percent') {
+    const v = parseFloat(bat.pct);
+    if (isNaN(v)) return 'badge-gray';
+    if (v < 30) return 'badge-red';      
+    if (v < 50) return 'badge-yellow';   
+    return 'badge-green';                
   }
-  return'badge-blue';
+
+  if (bat.type === 'time') {
+    const y = parseInt(bat.years);
+    const m = parseInt(bat.months) || 0;
+    if (isNaN(y) && isNaN(m)) return 'badge-gray';
+    
+    const totalMeses = (isNaN(y) ? 0 : y * 12) + m;
+    if (totalMeses === 0 && isNaN(y)) return 'badge-gray';
+
+    if (totalMeses < 12) return 'badge-red';     
+    if (totalMeses < 24) return 'badge-yellow';  
+    return 'badge-green';                       
+  }
+
+  return 'badge-blue';
 }
 
 function lastConsulta(p){
@@ -436,9 +465,7 @@ function WhatsAppListModal({patients, onClose}) {
     }
 
     let phone = `${p.telPrefix || ''}${p.telNum || ''}`.replace(/\D/g, '');
-    if (phone.length >= 10 && !phone.startsWith('54')) {
-      phone = `549${phone}`; 
-    }
+    if (phone.length >= 10 && !phone.startsWith('54')) phone = `549${phone}`; 
     
     const contactName = p.telOwner === 'Paciente' ? p.nombre : (p.telContact || 'Familiar');
     const msg = `Hola ${contactName}, nos comunicamos de MCP Bolívar para recordarte que tu fecha para el próximo control de marcapasos es el *${nextDate}*. El valor de la consulta en consultorio es de *$${price}*. Si desea un control a domicilio, consulte.`;
@@ -454,42 +481,23 @@ function WhatsAppListModal({patients, onClose}) {
             <span className="modal-title" style={{color: 'white'}}>📱 Enviar Recordatorios</span>
             <button className="btn btn-sm" style={{background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.3)'}} onClick={onClose}>✕</button>
           </div>
-          
           <div style={{background: 'rgba(255,255,255,0.1)', padding: '12px', borderRadius: '8px'}}>
-            <div style={{fontSize: '12px', marginBottom: '8px', fontWeight: '500'}}>Datos para el mensaje automático (quedan guardados):</div>
+            <div style={{fontSize: '12px', marginBottom: '8px', fontWeight: '500'}}>Datos para el mensaje automático:</div>
             <div style={{display:'flex', gap:'8px'}}>
-              <input 
-                type="text" 
-                placeholder="Ej: Jueves 15 de Mayo" 
-                value={nextDate} 
-                onChange={e => handleDateChange(e.target.value)} 
-                style={{fontSize:'13px', padding:'8px', color:'#1a202c', flex: 1}}
-              />
-              <input 
-                type="number" 
-                placeholder="Valor ($)" 
-                value={price} 
-                onChange={e => handlePriceChange(e.target.value)} 
-                style={{fontSize:'13px', padding:'8px', width:'100px', color:'#1a202c'}}
-              />
+              <input type="text" placeholder="Ej: Jueves 15 de Mayo" value={nextDate} onChange={e => handleDateChange(e.target.value)} style={{fontSize:'13px', padding:'8px', color:'#1a202c', flex: 1}}/>
+              <input type="number" placeholder="Valor ($)" value={price} onChange={e => handlePriceChange(e.target.value)} style={{fontSize:'13px', padding:'8px', width:'100px', color:'#1a202c'}}/>
             </div>
           </div>
         </div>
-
         <div className="modal-body" style={{flex: 1, overflowY: 'auto', padding: 0}}>
           {waPatients.length === 0 && <div style={{padding: '2rem', textAlign: 'center', color: '#718096'}}>No hay contactos válidos.</div>}
-          
           {waPatients.map(p => (
             <div key={p.id} onClick={() => handleWaClick(p)} style={{display: 'flex', padding: '15px', borderBottom: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', alignItems: 'center', justifyContent: 'space-between'}}>
               <div>
                 <div style={{fontWeight: 700, fontSize: '15px', color: '#1a202c'}}>{p.apellido}, {p.nombre}</div>
-                <div style={{fontSize: '12px', color: '#718096', marginTop: '4px'}}>
-                  {p.telPrefix} {p.telNum} <span style={{opacity: 0.8}}>({p.telOwner})</span>
-                </div>
+                <div style={{fontSize: '12px', color: '#718096', marginTop: '4px'}}>{p.telPrefix} {p.telNum} <span style={{opacity: 0.8}}>({p.telOwner})</span></div>
               </div>
-              <div style={{background: '#25D366', color: 'white', padding: '8px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 700}}>
-                Enviar ➔
-              </div>
+              <div style={{background: '#25D366', color: 'white', padding: '8px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 700}}>Enviar ➔</div>
             </div>
           ))}
         </div>
@@ -629,18 +637,15 @@ function ConsultaForm({patient,db,setDB,onClose}){
     batteryMonths: patient.batteryMonths || '',
     obs: 'sin particularidades',
     particular: patient.particular || false,
-    pagoEstado: 'cobrado', // 'cobrado' | 'diferido'
-    pagoMetodo: 'efectivo', // 'efectivo' | 'transferencia'
+    pagoEstado: 'cobrado',
+    pagoMetodo: 'efectivo',
     pagoDestino: ''
   });
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   function save(){
-    const consultaData = {
-      ...form,
-      monto: sessionVal
-    };
+    const consultaData = { ...form, monto: sessionVal };
 
     const updP = {
       ...patient,
@@ -650,15 +655,11 @@ function ConsultaForm({patient,db,setDB,onClose}){
       batteryPct: form.batteryPct,
       batteryYears: form.batteryYears,
       batteryMonths: form.batteryMonths,
-      ausenciasCount: 0 // Reseteo de ausencias al presentarse
+      ausenciasCount: 0 
     };
 
-    let newDB = {
-      ...db,
-      patients: db.patients.map(p => p.id === patient.id ? updP : p)
-    };
+    let newDB = { ...db, patients: db.patients.map(p => p.id === patient.id ? updP : p) };
 
-    // Si hay jornada activa y no es particular, computamos el cobro
     if (!form.particular && currentSession) {
       const pagoDetalle = {
         consultaId: form.id,
@@ -671,12 +672,15 @@ function ConsultaForm({patient,db,setDB,onClose}){
         date: form.date
       };
 
+      const otrosPagos = (currentSession.pagos || []).filter(p => p.consultaId !== form.id);
+      const listaPagos = [...otrosPagos, pagoDetalle];
+
       newDB.finances = {
         ...newDB.finances,
         currentSession: {
           ...currentSession,
-          count: (currentSession.count || 0) + 1,
-          pagos: [...(currentSession.pagos || []), pagoDetalle]
+          count: listaPagos.length,
+          pagos: listaPagos
         }
       };
     }
@@ -714,7 +718,7 @@ function ConsultaForm({patient,db,setDB,onClose}){
 
           <label className="radio-label" style={{marginBottom:'.75rem'}}>
             <input type="checkbox" checked={form.particular} onChange={e=>set('particular',e.target.checked)}/>
-            <span>Consulta Particular <span style={{color:'#718096', fontWeight:400}}>(no impacta en jornada ni honorarios de secretaria)</span></span>
+            <span>Consulta Particular <span style={{color:'#718096', fontWeight:400}}>(no impacta en jornada ni honorarios)</span></span>
           </label>
 
           {!form.particular && (
@@ -745,7 +749,7 @@ function ConsultaForm({patient,db,setDB,onClose}){
                   <label style={{fontSize: '11px', color: '#64748b'}}>Cuenta o Destino (banco / billetera)</label>
                   <input 
                     type="text" 
-                    placeholder="Ej: Mercado Pago, BAPRO, Santander..." 
+                    placeholder="Ej: Mercado Pago, BAPRO..." 
                     value={form.pagoDestino} 
                     onChange={e=>set('pagoDestino', e.target.value)} 
                     autoFocus
@@ -755,7 +759,7 @@ function ConsultaForm({patient,db,setDB,onClose}){
 
               {form.pagoEstado === 'diferido' && (
                 <div style={{fontSize: '11px', color: '#b45309', background: '#fffbeb', padding: '6px 8px', borderRadius: '6px'}}>
-                  ℹ️ Se liquidará el 20% de la secretaria en el cierre de hoy. El cobro quedará pendiente para vos más adelante.
+                  ℹ️ Se liquidará el 20% a secretaria hoy. El cobro quedará pendiente.
                 </div>
               )}
             </div>
@@ -915,8 +919,27 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta, r
   async function deleteConsulta(cid){
     const ok = await showConfirm({ title: 'Eliminar Consulta', message: '¿Estás seguro de que deseas eliminar este registro de consulta?', confirmText: 'Eliminar', isDanger: true });
     if(!ok) return;
-    const updated={...patient,consultas:(patient.consultas||[]).filter(c=>c.id!==cid)};
-    setDB({...db,patients:db.patients.map(p=>p.id===patient.id?updated:p)});
+
+    const consultaABorrar = (patient.consultas || []).find(c => c.id === cid);
+    const updatedConsultas = (patient.consultas || []).filter(c => c.id !== cid);
+    const updatedPatient = { ...patient, consultas: updatedConsultas };
+
+    let newDB = {
+      ...db,
+      patients: db.patients.map(p => p.id === patient.id ? updatedPatient : p)
+    };
+
+    if (newDB.finances?.currentSession && !consultaABorrar?.particular) {
+      const current = newDB.finances.currentSession;
+      const pagosFiltrados = (current.pagos || []).filter(p => p.consultaId !== cid);
+      newDB.finances.currentSession = {
+        ...current,
+        count: Math.max(0, pagosFiltrados.length),
+        pagos: pagosFiltrados
+      };
+    }
+
+    setDB(newDB);
   }
 
   async function deletePatient(){
@@ -1387,61 +1410,20 @@ function NotesModule({ db, setDB }) {
         {tab === 'tasks' && (
           <div>
             <form onSubmit={addTask} style={{display: 'flex', gap: '8px', marginBottom: '1rem'}}>
-              <input
-                type="text"
-                placeholder="Escribe un pendiente o ajuste técnico..."
-                value={newTaskText}
-                onChange={e => setNewTaskText(e.target.value)}
-                style={{flex: 1}}
-              />
-              <button type="submit" className="btn btn-primary" style={{whiteSpace: 'nowrap'}}>
-                + Agregar
-              </button>
+              <input type="text" placeholder="Escribe un pendiente o ajuste técnico..." value={newTaskText} onChange={e => setNewTaskText(e.target.value)} style={{flex: 1}}/>
+              <button type="submit" className="btn btn-primary" style={{whiteSpace: 'nowrap'}}>+ Agregar</button>
             </form>
-
             <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-              {(notes.tasks || []).length === 0 && (
-                <div style={{textAlign: 'center', padding: '2rem', color: '#a0aec0'}}>
-                  No hay pendientes anotados. ¡Todo al día!
-                </div>
-              )}
+              {(notes.tasks || []).length === 0 && <div style={{textAlign: 'center', padding: '2rem', color: '#a0aec0'}}>No hay pendientes anotados. ¡Todo al día!</div>}
               {(notes.tasks || []).map(task => (
-                <div 
-                  key={task.id} 
-                  style={{
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: task.done ? '#f8fafc' : '#fff',
-                    border: '1px solid #e2e8f0',
-                    opacity: task.done ? 0.6 : 1
-                  }}
-                >
+                <div key={task.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', background: task.done ? '#f8fafc' : '#fff', border: '1px solid #e2e8f0', opacity: task.done ? 0.6 : 1 }}>
                   <label style={{display: 'flex', alignItems: 'center', gap: '10px', margin: 0, cursor: 'pointer', flex: 1}}>
-                    <input 
-                      type="checkbox" 
-                      checked={task.done} 
-                      onChange={() => toggleTask(task.id)}
-                    />
-                    <span style={{
-                      fontSize: '14px',
-                      textDecoration: task.done ? 'line-through' : 'none',
-                      color: task.done ? '#718096' : '#1a202c'
-                    }}>
-                      {task.text}
-                    </span>
+                    <input type="checkbox" checked={task.done} onChange={() => toggleTask(task.id)}/>
+                    <span style={{ fontSize: '14px', textDecoration: task.done ? 'line-through' : 'none', color: task.done ? '#718096' : '#1a202c' }}>{task.text}</span>
                   </label>
                   <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                     <span style={{fontSize: '11px', color: '#a0aec0'}}>{task.createdAt}</span>
-                    <button 
-                      className="btn btn-xs btn-danger" 
-                      onClick={() => deleteTask(task.id)}
-                      title="Eliminar"
-                    >
-                      ✕
-                    </button>
+                    <button className="btn btn-xs btn-danger" onClick={() => deleteTask(task.id)} title="Eliminar">✕</button>
                   </div>
                 </div>
               ))}
@@ -1451,20 +1433,10 @@ function NotesModule({ db, setDB }) {
 
         {tab === 'ideas' && (
           <div>
-            <textarea
-              rows={12}
-              placeholder="Anota aquí ideas de diseño, flujos a mejorar o notas rápidas..."
-              value={ideasText}
-              onChange={e => setIdeasText(e.target.value)}
-              style={{fontFamily: 'monospace', fontSize: '13px', lineHeight: 1.5, resize: 'vertical'}}
-            />
+            <textarea rows={12} placeholder="Anota aquí ideas de diseño, flujos a mejorar o notas rápidas..." value={ideasText} onChange={e => setIdeasText(e.target.value)} style={{fontFamily: 'monospace', fontSize: '13px', lineHeight: 1.5, resize: 'vertical'}}/>
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px'}}>
-              {savedMsg ? (
-                <span className="badge badge-green">✓ Cambios guardados en la nube</span>
-              ) : <span />}
-              <button className="btn btn-primary" onClick={handleSaveIdeas}>
-                💾 Guardar Notas
-              </button>
+              {savedMsg ? <span className="badge badge-green">✓ Cambios guardados en la nube</span> : <span />}
+              <button className="btn btn-primary" onClick={handleSaveIdeas}>💾 Guardar Notas</button>
             </div>
           </div>
         )}
@@ -1511,9 +1483,7 @@ function ConfigModule({db,setDB}){
 }
 
 function PrintListModal({patients, onClose, onlyParticulares = false}){
-  const list = onlyParticulares 
-    ? patients.filter(p => p.particular && !p.fallecido)
-    : patients;
+  const list = onlyParticulares ? patients.filter(p => p.particular && !p.fallecido) : patients;
 
   const formatMonthYear = (dateStr) => {
     if (!dateStr || dateStr === 'Sin control' || dateStr.includes('Sin')) return 'Sin control';
@@ -1530,9 +1500,7 @@ function PrintListModal({patients, onClose, onlyParticulares = false}){
     <div className="modal-overlay no-print">
       <div className="modal modal-lg print-modal-container">
         <div className="modal-header">
-          <span className="modal-title">
-            {onlyParticulares ? '🏠 Hoja de Ruta — Controles a Domicilio' : 'Lista Imprimible de Pacientes'}
-          </span>
+          <span className="modal-title">{onlyParticulares ? '🏠 Hoja de Ruta — Controles a Domicilio' : 'Lista Imprimible de Pacientes'}</span>
           <button className="btn btn-sm" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body print-body-reset">
@@ -1570,22 +1538,15 @@ function PrintListModal({patients, onClose, onlyParticulares = false}){
                       {p.fallecido && <span style={{marginLeft: '6px', color: '#c53030', fontSize: '9px'}}>FALLECIDO</span>}
                     </td>
                     <td style={{borderBottom: '1px solid #edf2f7', padding: '8px', fontWeight: 500}}>
-                      {`${p.street || ''} ${p.streetNum || ''}`.trim() || '—'} 
-                      <span style={{fontSize: '11px', color: '#718096', display: 'block'}}>{p.city}</span>
+                      {`${p.street || ''} ${p.streetNum || ''}`.trim() || '—'} <span style={{fontSize: '11px', color: '#718096', display: 'block'}}>{p.city}</span>
                     </td>
                     <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>
-                      {p.telPrefix} {p.telNum}
-                      <span style={{fontSize: '11px', color: '#718096', display: 'block'}}>
-                        {p.telOwner !== 'Paciente' ? `${p.telOwner}: ${p.telContact}` : '(Paciente)'}
-                      </span>
+                      {p.telPrefix} {p.telNum} <span style={{fontSize: '11px', color: '#718096', display: 'block'}}>{p.telOwner !== 'Paciente' ? `${p.telOwner}: ${p.telContact}` : '(Paciente)'}</span>
                     </td>
                     <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>
-                      <strong>{p.brand || '—'}</strong>
-                      <span style={{fontSize: '11px', color: '#718096', display: 'block'}}>{p.deviceType}</span>
+                      <strong>{p.brand || '—'}</strong> <span style={{fontSize: '11px', color: '#718096', display: 'block'}}>{p.deviceType}</span>
                     </td>
-                    {!onlyParticulares && (
-                      <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>{formatMonthYear(lastConsulta(p))}</td>
-                    )}
+                    {!onlyParticulares && <td style={{borderBottom: '1px solid #edf2f7', padding: '8px'}}>{formatMonthYear(lastConsulta(p))}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -1630,11 +1591,7 @@ function EquiposDashboard({ db, agendaItems }) {
       }
     });
 
-    return {
-      atendidos: at,
-      restantes: rest.length,
-      marcasRestantes: marcasMap
-    };
+    return { atendidos: at, restantes: rest.length, marcasRestantes: marcasMap };
   }, [pacientesConsultorioHoy, hoy]);
 
   if (pacientesConsultorioHoy.length === 0) return null;
@@ -1643,12 +1600,8 @@ function EquiposDashboard({ db, agendaItems }) {
     <div className="card" style={{background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#fff', border: 'none', marginBottom: '0.75rem', padding: '1rem'}}>
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '10px'}}>
         <div>
-          <span style={{fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.6px', color: '#94a3b8', fontWeight: 700}}>
-            Monitor de Consultorio en Vivo
-          </span>
-          <div style={{fontSize: '18px', fontWeight: 800, color: '#f8fafc'}}>
-            {atendidos} de {pacientesConsultorioHoy.length} atendidos
-          </div>
+          <span style={{fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.6px', color: '#94a3b8', fontWeight: 700}}>Monitor de Consultorio en Vivo</span>
+          <div style={{fontSize: '18px', fontWeight: 800, color: '#f8fafc'}}>{atendidos} de {pacientesConsultorioHoy.length} atendidos</div>
         </div>
         <div style={{display: 'flex', gap: '8px'}}>
           <div style={{background: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.4)', borderRadius: '8px', padding: '6px 12px', textAlign: 'center'}}>
@@ -1663,32 +1616,14 @@ function EquiposDashboard({ db, agendaItems }) {
       </div>
 
       <div style={{borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px'}}>
-        <div style={{fontSize: '11px', color: '#cbd5e1', marginBottom: '6px', fontWeight: 600}}>
-          Equipos pendientes de uso:
-        </div>
+        <div style={{fontSize: '11px', color: '#cbd5e1', marginBottom: '6px', fontWeight: 600}}>Equipos pendientes de uso:</div>
         <div style={{display: 'flex', gap: '6px', flexWrap: 'wrap'}}>
           {(db.brands || []).map(b => {
             const count = marcasRestantes[b] || 0;
             const listoParaGuardar = count === 0;
-
             return (
-              <div 
-                key={b}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  background: listoParaGuardar ? 'rgba(255,255,255,0.06)' : 'rgba(59, 130, 246, 0.25)',
-                  border: listoParaGuardar ? '1px dashed rgba(255,255,255,0.2)' : '1px solid #3b82f6',
-                  color: listoParaGuardar ? '#64748b' : '#93c5fd'
-                }}
-              >
-                <span>{b}:</span>
-                <strong style={{color: listoParaGuardar ? '#94a3b8' : '#fff'}}>{count}</strong>
+              <div key={b} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, background: listoParaGuardar ? 'rgba(255,255,255,0.06)' : 'rgba(59, 130, 246, 0.25)', border: listoParaGuardar ? '1px dashed rgba(255,255,255,0.2)' : '1px solid #3b82f6', color: listoParaGuardar ? '#64748b' : '#93c5fd' }}>
+                <span>{b}:</span><strong style={{color: listoParaGuardar ? '#94a3b8' : '#fff'}}>{count}</strong>
                 {listoParaGuardar && <span style={{fontSize: '10px', color: '#22c55e'}}>✓ Guardar</span>}
               </div>
             );
@@ -1723,42 +1658,23 @@ function App(){
     const unsubscribe = firestore.collection('mcp').doc('main').onSnapshot(doc => {
       if (doc.exists) {
         const cloudData = doc.data();
-        if (cloudData && Array.isArray(cloudData.patients)) {
-          setDBRaw(cloudData);
-        }
-      } else {
-        console.warn("El documento mcp/main no existe o no se pudo leer.");
+        if (cloudData && Array.isArray(cloudData.patients)) setDBRaw(cloudData);
       }
       setLoading(false);
-    }, err => {
-      console.error("Error al conectar con Firestore:", err);
-      showAlert({title: "Error de conexión", message: "Problemas al conectar con Firestore: " + err.message});
-    });
+    }, err => showAlert({title: "Error de conexión", message: "Problemas al conectar con Firestore: " + err.message}));
 
     const unsubAgenda = firestore.collection('mcp').doc('agenda').onSnapshot(doc => {
-      if (doc.exists) {
-        setAgendaItems(doc.data().items || {});
-      }
+      if (doc.exists) setAgendaItems(doc.data().items || {});
     });
 
-    return () => {
-      unsubscribe();
-      unsubAgenda();
-    };
-  }, [role]);
+    return () => { unsubscribe(); unsubAgenda(); };
+  }, [role, showAlert]);
 
   function setDB(newDB){
     setDBRaw(newDB); 
-    try {
-      localStorage.setItem('mcpbolivar_v3', JSON.stringify(newDB));
-    } catch(e) {
-      console.warn("No se pudo escribir en localStorage:", e);
-    }
+    try { localStorage.setItem('mcpbolivar_v3', JSON.stringify(newDB)); } catch(e) { }
     if(role === 'admin') {
-      firestore.collection('mcp').doc('main').set(newDB, { merge: true }).catch(err => {
-        console.error(err);
-        showAlert({title: "Error", message: "No se pudieron sincronizar los datos en la nube."});
-      });
+      firestore.collection('mcp').doc('main').set(newDB, { merge: true }).catch(err => showAlert({title: "Error", message: "No se pudieron sincronizar los datos en la nube."}));
     }
   }
 
@@ -1782,7 +1698,7 @@ function App(){
     });
   }, [db?.patients, sortBy]);
 
-  const filtered=useMemo(()=>{
+  const filtered = useMemo(() => {
     const q=search.trim().toLowerCase(); if(!q)return sorted;
     return sorted.filter(p=> (p.apellido+' '+p.nombre).toLowerCase().includes(q));
   },[sorted,search]);
@@ -1808,31 +1724,16 @@ function App(){
       {editPatient && role === 'admin' && <PatientForm db={db} setDB={setDB} patient={editPatient} onClose={handleAfterSave}/>}
       {showWaList && <WhatsAppListModal patients={sorted} onClose={()=>setShowWaList(false)}/>}
       
-      {selectedId && !editPatient && (
-        <PatientDetail patientId={selectedId} db={db} setDB={setDB} role={role} onClose={() => {setSelectedId(null); setAutoOpenConsulta(false);}} onEdit={p => {setSelectedId(null); setEditPatient(p);}} initialOpenConsulta={autoOpenConsulta}/>
-      )}
+      {selectedId && !editPatient && <PatientDetail patientId={selectedId} db={db} setDB={setDB} role={role} onClose={() => {setSelectedId(null); setAutoOpenConsulta(false);}} onEdit={p => {setSelectedId(null); setEditPatient(p);}} initialOpenConsulta={autoOpenConsulta}/>}
       
-      {showPrint && (
-        <PrintListModal 
-          patients={sorted} 
-          onlyParticulares={printParticularesOnly} 
-          onClose={() => { setShowPrint(false); setPrintParticularesOnly(false); }}
-        />
-      )}
+      {showPrint && <PrintListModal patients={sorted} onlyParticulares={printParticularesOnly} onClose={() => { setShowPrint(false); setPrintParticularesOnly(false); }}/>}
 
       <nav className="navbar">
         <div className="nav-logo">
           <img src="logo_mcp.png" alt="Logo" style={{width: 30, height: 30, borderRadius: '50%'}} /> 
           MCP Bolívar
         </div>
-
-        <button 
-          className="btn btn-sm" 
-          style={{background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', marginLeft: '10px'}}
-          onClick={() => window.open('agenda.html', '_blank')}
-        >
-          📋 Agenda y Confirmaciones
-        </button>
+        <button className="btn btn-sm" style={{background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.35)', marginLeft: '10px'}} onClick={() => window.open('agenda.html', '_blank')}>📋 Agenda y Confirmaciones</button>
         
         {role === 'admin' && (
           <div className="desktop-nav-items" style={{display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto'}}>
@@ -1848,28 +1749,11 @@ function App(){
         <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginLeft: role !== 'admin' ? 'auto' : '6px'}}>
           {role === 'admin' && (
             <>
-              <button className="nav-new mobile-menu-btn" style={{padding: '5px 10px', fontSize: '12px'}} onClick={()=>setShowNew(true)}>
-                + Nuevo
-              </button>
-              <button 
-                className="btn btn-sm mobile-menu-btn" 
-                style={{background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', padding: '6px 10px'}}
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              >
-                {mobileMenuOpen ? '✕' : '☰'}
-              </button>
+              <button className="nav-new mobile-menu-btn" style={{padding: '5px 10px', fontSize: '12px'}} onClick={()=>setShowNew(true)}>+ Nuevo</button>
+              <button className="btn btn-sm mobile-menu-btn" style={{background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', padding: '6px 10px'}} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>{mobileMenuOpen ? '✕' : '☰'}</button>
             </>
           )}
-
-          {role === 'secre' && (
-            <button 
-              className="btn btn-sm" 
-              style={{background: 'rgba(255,0,0,0.2)', color: '#fff', border: 'none', padding: '5px 10px'}}
-              onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}
-            >
-              Salir
-            </button>
-          )}
+          {role === 'secre' && <button className="btn btn-sm" style={{background: 'rgba(255,0,0,0.2)', color: '#fff', border: 'none', padding: '5px 10px'}} onClick={()=>{setRole(null); localStorage.removeItem('mcp_role');}}>Salir</button>}
         </div>
       </nav>
 
@@ -1887,9 +1771,7 @@ function App(){
       <div className="main">
         {view==='patients'&&(
           <>
-            {/* PANEL EN VIVO DE ATENCIÓN Y EQUIPOS */}
             <EquiposDashboard db={db} agendaItems={agendaItems} />
-
             <div className="card" style={{marginBottom: '0.75rem'}}>
               <div className="filter-bar-mobile">
                 <div className="search-wrap" style={{flex:1,minWidth:220}}>
@@ -1904,7 +1786,6 @@ function App(){
                   </div>
                   <span className="badge badge-blue" style={{fontSize:11, padding:'4px 8px'}}>{filtered.length} pac.</span>
                   <button className="btn btn-sm btn-success" onClick={()=>setShowWaList(true)}>📱 WhatsApp</button>
-                  
                   {role === 'admin' && (
                     <>
                       <button className="btn btn-sm btn-info" onClick={()=>{ setPrintParticularesOnly(true); setShowPrint(true); }}>🏠 Particulares</button>
@@ -1915,7 +1796,6 @@ function App(){
               </div>
             </div>
 
-            {/* TABLA ESCRITORIO */}
             <div className="card desktop-table" style={{padding:0, overflow:'hidden'}}>
               <div className="table-wrap">
                 <table>
@@ -1929,11 +1809,7 @@ function App(){
                             <span style={{fontWeight:600, textDecoration: p.fallecido ? 'line-through' : 'none', color: p.fallecido ? '#718096' : 'inherit'}}>{p.apellido}, {p.nombre}</span>
                             {p.particular && <span className="badge badge-yellow" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}}>Particular</span>}
                             {p.fallecido && <span className="badge badge-red" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}}>Fallecido</span>}
-                            {p.ausenciasCount > 0 && !p.fallecido && (
-                              <span className="badge badge-orange" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}} title={`Última ausencia: ${p.ultimaAusencia || 'N/A'}`}>
-                                ⚠️ {p.ausenciasCount} {p.ausenciasCount === 1 ? 'falta' : 'faltas'} ({p.ultimaAusencia || 'sin fecha'})
-                              </span>
-                            )}
+                            {p.ausenciasCount > 0 && !p.fallecido && <span className="badge badge-orange" style={{marginLeft: 4, padding: '1px 6px', fontSize: '9px'}} title={`Última ausencia: ${p.ultimaAusencia || 'N/A'}`}>⚠️ {p.ausenciasCount} {p.ausenciasCount === 1 ? 'falta' : 'faltas'} ({p.ultimaAusencia || 'sin fecha'})</span>}
                           </div>
                         </td>
                         <td>{calcAge(p.dob)??'—'}</td><td style={{color:'#718096'}}>{p.city||'—'}</td><td>{p.deviceType||'—'}</td>
@@ -1947,34 +1823,20 @@ function App(){
               </div>
             </div>
 
-            {/* TARJETAS MÓVILES */}
             <div className="mobile-cards-list">
               {filtered.map(p => (
                 <div key={p.id} className="mobile-patient-card" onClick={()=>setSelectedId(p.id)} style={{opacity: p.fallecido ? 0.6 : 1}}>
                   <div className="mobile-card-header">
                     <div className="mobile-card-title">
-                      <div style={{width:28, height:28, borderRadius:'50%', background: p.fallecido ? '#e2e8f0' : '#ebf4ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color: p.fallecido ? '#718096' : '#1a56db'}}>
-                        {p.apellido[0]}{p.nombre[0]}
-                      </div>
-                      <span style={{textDecoration: p.fallecido ? 'line-through' : 'none', color: p.fallecido ? '#718096' : '#1a202c'}}>
-                        {p.apellido}, {p.nombre}
-                      </span>
+                      <div style={{width:28, height:28, borderRadius:'50%', background: p.fallecido ? '#e2e8f0' : '#ebf4ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color: p.fallecido ? '#718096' : '#1a56db'}}>{p.apellido[0]}{p.nombre[0]}</div>
+                      <span style={{textDecoration: p.fallecido ? 'line-through' : 'none', color: p.fallecido ? '#718096' : '#1a202c'}}>{p.apellido}, {p.nombre}</span>
                     </div>
                     <div style={{display:'flex', alignItems:'center', gap:'4px', flexWrap:'wrap', justifyContent:'flex-end'}}>
                       {p.particular && <span className="badge badge-yellow" style={{fontSize: '9px'}}>Part.</span>}
-                      {p.ausenciasCount > 0 && !p.fallecido && (
-                        <span className="badge badge-orange" style={{fontSize: '9px'}} title={`Última ausencia: ${p.ultimaAusencia || 'N/A'}`}>
-                          ⚠️ {p.ausenciasCount} {p.ausenciasCount === 1 ? 'falta' : 'faltas'}
-                        </span>
-                      )}
-                      {p.fallecido ? (
-                        <span className="badge badge-red">Fallecido</span>
-                      ) : (
-                        <span className={`badge ${batteryColor(p)}`}>{batteryDisplay(p)}</span>
-                      )}
+                      {p.ausenciasCount > 0 && !p.fallecido && <span className="badge badge-orange" style={{fontSize: '9px'}} title={`Última ausencia: ${p.ultimaAusencia || 'N/A'}`}>⚠️ {p.ausenciasCount} {p.ausenciasCount === 1 ? 'falta' : 'faltas'}</span>}
+                      {p.fallecido ? <span className="badge badge-red">Fallecido</span> : <span className={`badge ${batteryColor(p)}`}>{batteryDisplay(p)}</span>}
                     </div>
                   </div>
-
                   <div className="mobile-card-body">
                     <div>🏷️ <strong>Marca:</strong> {p.brand || '—'}</div>
                     <div>⚡ <strong>Tipo:</strong> {p.deviceType || '—'}</div>
@@ -1987,13 +1849,7 @@ function App(){
           </>
         )}
 
-        {view==='notes' && role === 'admin' && (
-          <>
-            <h2 style={{fontSize: 18, marginBottom: '1rem'}}>📝 Bloc de Notas & Pendientes</h2>
-            <NotesModule db={db} setDB={setDB} />
-          </>
-        )}
-
+        {view==='notes' && role === 'admin' && <><h2 style={{fontSize: 18, marginBottom: '1rem'}}>📝 Bloc de Notas & Pendientes</h2><NotesModule db={db} setDB={setDB} /></>}
         {view==='finances' && role === 'admin' && <><h2 style={{fontSize:18,marginBottom:'1rem'}}>💼 Finanzas</h2><FinanceModule db={db} setDB={setDB}/></>}
         {view==='config' && role === 'admin' && <><h2 style={{fontSize:18,marginBottom:'1rem'}}>⚙ Configuración</h2><ConfigModule db={db} setDB={setDB}/></>}
       </div>
@@ -2002,11 +1858,7 @@ function App(){
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <DialogProvider>
-    <App/>
-  </DialogProvider>
-);
+ReactDOM.createRoot(document.getElementById('root')).render(<DialogProvider><App/></DialogProvider>);
 </script>
 </body>
 </html>
