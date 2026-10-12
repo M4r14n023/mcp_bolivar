@@ -862,135 +862,120 @@ function AIReportGenerator({patient, onClose}) {
     if(arr.length === 0) return;
     const mainFile = arr[0]; 
     setPdfFiles(prev => [...prev, ...arr]);
-    
-    if(!apiKey) { 
-      if(window.confirm('No tienes configurada la API Key de Gemini. ¿Quieres llenar el formulario manualmente?')) setStep(2); 
-      return; 
-    }
 
     setStatus('leyendo');
     try {
       const arrayBuffer = await mainFile.arrayBuffer(); 
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-      let relevantText = ''; 
+      let fullText = ''; 
       
-      // FILTRO INTELIGENTE DE PÁGINAS (Leemos solo 1, 2 y última)
+      // Leemos todo el texto del documento para análisis
       for (let i = 1; i <= pdf.numPages; i++) { 
-        const isTargetPage = (pdf.numPages <= 3) || (i === 1) || (i === 2) || (i === pdf.numPages);
+        const page = await pdf.getPage(i); 
+        const textContent = await page.getTextContent(); 
+        fullText += `\n[PAG_${i}]\n` + textContent.items.map(item => item.str).join(' '); 
+      }
 
-        if (isTargetPage) {
-          const page = await pdf.getPage(i); 
-          const textContent = await page.getTextContent(); 
-          const pageStr = textContent.items.map(item => item.str).join(' ');
-          
-          if (!pageStr.includes('Registro congelado sin guardar') && !pageStr.includes('Captura de imágenes congeladas')) {
-            relevantText += `\n[PÁGINA ${i}]\n` + pageStr;
-          }
+      // --- 1. PARSER CLÍNICO DETERMINÍSTICO (FUERZA BRUTA) ---
+      let detectedModo = patient.mode || '';
+      let detectedImpA = '';
+      let detectedImpV = '';
+      let detectedEstimV = '';
+      let detectedArrModo = false;
+      let detectedArrPMT = false;
+
+      const clean = fullText.replace(/\s+/g, ' ');
+
+      // A) ST. JUDE / ABBOTT (Merlin / FastPath)
+      if (clean.includes('FastPath') || clean.includes('Abbott') || clean.includes('St. Jude')) {
+        const modoMatch = clean.match(/Modo\s+([A-Z]{3,5})/i);
+        if (modoMatch) detectedModo = modoMatch[1];
+
+        // Impedancias en tabla de resultados: busca números antes de Ω
+        const ohmsMatches = clean.match(/(\d{3,4})\s*Ω/g);
+        if (ohmsMatches && ohmsMatches.length >= 2) {
+          detectedImpA = ohmsMatches[0].replace(/\D/g, '');
+          detectedImpV = ohmsMatches[1].replace(/\D/g, '');
         }
+
+        // Estimulación VP
+        const vpMatch = clean.match(/VP\s*([<>]?\d+)\s*%/i);
+        if (vpMatch) detectedEstimV = vpMatch[1].replace('<', '');
+
+        if (clean.includes('CAM') || clean.includes('Cambio de modo')) detectedArrModo = true;
+        if (clean.includes('PMT')) detectedArrPMT = true;
       }
 
-      setStatus('ia');
-      // Prompt enfocado en lo que realmente falta: Impedancias, Estimulación V y Arritmias
-      const prompt = `Actúa como un cardiólogo especialista en control de marcapasos.
-Analiza este extracto de un control del paciente ${patient.apellido}, ${patient.nombre}.
-Dispositivo: ${patient.deviceType} (${patient.brand || ''}).
+      // B) BOSTON SCIENTIFIC (QUICK NOTES)
+      else if (clean.includes('LATITUDE') || clean.includes('Boston Scientific') || clean.includes('QUICK NOTES')) {
+        const modoMatch = clean.match(/Modo\s+([A-Z]{3,5})/i);
+        if (modoMatch) detectedModo = modoMatch[1];
 
-Extrae únicamente los siguientes datos técnicos:
-1. "modo": Modo de estimulación (si figura en el reporte ej: DDDR, DDDR-ADIR, VVIR, VVI; si no, deja "${patient.mode || ''}").
-2. "impA": Impedancia Auricular en Ohms (Ω). Busca bajo "Impedancia de estim.", "Imped. electrodos", columna/fila A o Auricular. Si es unicameral V, pon "".
-3. "impV": Impedancia Ventricular en Ohms (Ω). Busca bajo "Impedancia de estim.", "Imped. electrodos", "Impedancia medida", columna/fila V o Ventricular.
-4. "impShock": Impedancia de choque si es DAI/Resincronizador, caso contrario "".
-5. "estimV": Porcentaje de estimulación ventricular (% o Vp o Estimulado). Solo el número (ej: 99, 72, 1, 68).
-6. "arrPMT": true si hubo episodios de PMT, sino false.
-7. "arrModo": true si hubo episodios de Cambio de Modo (CAM / RTA / cambios de modo > 0), sino false.
-8. "arrRuido": true si hubo reversión o detección de ruido en electrodos, sino false.
-9. "arrOtros": Breve texto si se describen otras arritmias (o "").
+        const impAMatch = clean.match(/Auricular[\s\S]{0,100}?(\d{3,4})\s*Ω/i);
+        if (impAMatch) detectedImpA = impAMatch[1];
 
-Devuelve EXCLUSIVAMENTE este JSON:
-{
-  "modo": "string",
-  "impA": "string",
-  "impV": "string",
-  "impShock": "string",
-  "estimV": "string",
-  "arrPMT": false,
-  "arrModo": false,
-  "arrRuido": false,
-  "arrOtros": ""
-}
+        const impVMatch = clean.match(/Ventricular[\s\S]{0,100}?(\d{3,4})\s*Ω/i);
+        if (impVMatch) detectedImpV = impVMatch[1];
 
-Texto del informe:
-${relevantText}`;
+        const estimMatch = clean.match(/Ventricular\s*\|\s*(\d+)%\s*Estim/i) || clean.match(/Ventricular\s*(\d+)%\s*Estim/i);
+        if (estimMatch) detectedEstimV = estimMatch[1];
 
-      const waitMs = (ms) => new Promise(res => setTimeout(res, ms));
-      let apiResultData = null;
-      let lastApiError = null;
-      const maxRetries = 3;
+        if (clean.includes('RTA') || clean.includes('Camb. modo')) detectedArrModo = true;
+      }
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': apiKey
-            },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: {
-                temperature: 0.1
-              }
-            })
-          });
+      // C) MEDTRONIC
+      else if (clean.includes('Medtronic')) {
+        const modoMatch = clean.match(/Modo\s+([A-Z]{3,5})/i);
+        if (modoMatch) detectedModo = modoMatch[1];
 
-          if (response.ok) {
-            apiResultData = await response.json();
-            break;
-          }
+        const impMatch = clean.match(/Impedancia medida\s*(\d{3,4})\s*ohmios/i);
+        if (impMatch) detectedImpV = impMatch[1];
 
-          const errText = await response.text();
-          lastApiError = new Error(`Intento ${attempt} (${response.status}): ${errText}`);
+        const estimMatch = clean.match(/Estimulado\s*(\d+(\.\d+)?)%/i);
+        if (estimMatch) detectedEstimV = Math.round(parseFloat(estimMatch[1])).toString();
+      }
 
-          if (response.status === 503 && attempt < maxRetries) {
-            await waitMs(1200);
-          } else {
-            break;
-          }
-        } catch (netErr) {
-          lastApiError = netErr;
-          if (attempt < maxRetries) await waitMs(1200);
+      // D) BIOTRONIK
+      else if (clean.includes('BIOTRONIK')) {
+        const modoMatch = clean.match(/Modo\s+([A-Z0-9\/-]+)/i);
+        if (modoMatch) detectedModo = modoMatch[1];
+
+        // Impedancias A y V
+        const impMatch = clean.match(/(?:Impedancia de estimulación|Imped\.\s*electrodos)[\s\S]{0,60}?(\d{3,4})[\s\S]{0,20}?(\d{3,4})/i);
+        if (impMatch) {
+          detectedImpA = impMatch[1];
+          detectedImpV = impMatch[2];
         }
+
+        const estimMatch = clean.match(/Estimulación en A\/V\s*[%]\s*(\d+)\/(\d+)/i);
+        if (estimMatch) {
+          detectedEstimV = estimMatch[2];
+        } else {
+          const vpMatch = clean.match(/(\d+)%\s*Vp/i) || clean.match(/Estimulación\s*[%]\s*(\d+)/i);
+          if (vpMatch) detectedEstimV = vpMatch[1];
+        }
+
+        if (clean.includes('cambio modo') || clean.includes('Cambio de modo')) detectedArrModo = true;
       }
 
-      if (!apiResultData || !apiResultData.candidates || !apiResultData.candidates[0]?.content?.parts?.[0]?.text) {
-        throw lastApiError || new Error("No se obtuvo respuesta válida de Gemini.");
-      }
-
-      let jsonText = apiResultData.candidates[0].content.parts[0].text;
-      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) jsonText = jsonMatch[0];
-      const result = JSON.parse(jsonText);
-
-      // Fusionamos: Modo, Tipo y Batería de la ficha/consulta + Impedancias y Arritmias de la IA
+      // 2. APLICAMOS RESULTADOS INMEDIATAMENTE
       setForm(prev => ({
         ...prev,
-        modo: result.modo || prev.modo || patient.mode || '',
-        impA: result.impA || '',
-        impV: result.impV || '',
-        impShock: result.impShock || '',
-        estimV: result.estimV || '',
-        arrPMT: !!result.arrPMT,
-        arrModo: !!result.arrModo,
-        arrRuido: !!result.arrRuido,
-        arrOtros: result.arrOtros || ''
+        modo: detectedModo || prev.modo || patient.mode || '',
+        impA: detectedImpA || prev.impA || '',
+        impV: detectedImpV || prev.impV || '',
+        estimV: detectedEstimV || prev.estimV || '',
+        arrModo: detectedArrModo || prev.arrModo,
+        arrPMT: detectedArrPMT || prev.arrPMT
       }));
 
+      // Pasa al Paso 2 al instante sin depender de llamadas externas
       setStep(2); 
+
     } catch(err) {
-      console.error("Error al procesar con IA:", err);
-      setStatus('Error procesando el PDF. Puedes completar los datos manualmente.');
-      setTimeout(() => setStep(2), 2000);
+      console.error("Error al procesar el archivo:", err);
+      setStatus('No se pudo procesar el archivo. Completa los datos en el formulario.');
+      setTimeout(() => setStep(2), 1500);
     }
   }
 
