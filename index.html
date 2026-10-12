@@ -1114,8 +1114,21 @@ ${relevantText}`;
       a.href = url; 
       a.download = finalFileName; 
       a.click();
-      
-      setStatus('¡Informe generado con éxito!'); 
+
+      // DISPARO AUTOMÁTICO DE WHATSAPP CON EL MENSAJE LISTO
+      if (patient.telNum) {
+        let phone = `${patient.telPrefix || ''}${patient.telNum || ''}`.replace(/\D/g, '');
+        if (phone.length >= 10 && !phone.startsWith('54')) phone = `549${phone}`;
+        const cs = patient.consultas || [];
+        const fechaControl = cs.length > 0 ? cs[cs.length - 1].date : todayStr();
+        const receptor = patient.telOwner === 'Paciente' ? patient.nombre : `${patient.nombre} (vía ${patient.telContact || patient.telOwner})`;
+        const msg = `Hola ${receptor}, aqui te envio tu informe correspondiente al dia ${fechaControl}, muchas gracias. Mariano Lumbreras.`;
+        
+        // Abrimos WhatsApp en una pestaña nueva
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+      }
+
+      setStatus('¡Informe descargado y WhatsApp abierto!'); 
       setTimeout(onClose, 2000);
     } catch(err) { 
       setStatus('Error al generar el PDF final.'); 
