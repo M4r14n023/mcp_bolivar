@@ -782,26 +782,79 @@ function AIReportGenerator({patient, onClose}) {
   const [pdfUrl, setPdfUrl] = useState(null);
   const [showViewer, setShowViewer] = useState(false);
   
-  const [form, setForm] = useState({modo: patient.mode || '', impA: '', impV: '', impShock: '', batteryType: patient.batteryType || 'percent', batteryPct: patient.batteryPct || '', batteryYears: patient.batteryYears || '', batteryMonths: patient.batteryMonths || '', isERI: false, isEOL: false, estimV: '', arrPMT: false, arrModo: false, arrRuido: false, arrOtros: '', conclusion: '', nextControl: ''});
+  // 1. OBTENEMOS BATERÍA DIRECTA DEL CONTROL / FICHA DEL PACIENTE
+  const latestConsulta = useMemo(() => {
+    const cs = patient.consultas || [];
+    return cs.length > 0 ? cs[cs.length - 1] : null;
+  }, [patient]);
+
+  // Priorizamos la batería de la última consulta cargada; si no hay, la de la ficha
+  const initialBatType = latestConsulta?.batteryType || patient.batteryType || 'percent';
+  const initialBatPct = latestConsulta?.batteryPct !== undefined && latestConsulta?.batteryPct !== '' 
+    ? latestConsulta.batteryPct : (patient.batteryPct || '');
+  const initialBatYears = latestConsulta?.batteryYears !== undefined && latestConsulta?.batteryYears !== '' 
+    ? latestConsulta.batteryYears : (patient.batteryYears || '');
+  const initialBatMonths = latestConsulta?.batteryMonths !== undefined && latestConsulta?.batteryMonths !== '' 
+    ? latestConsulta.batteryMonths : (patient.batteryMonths || '');
+
+  // 2. MODO Y TIPO DE DISPOSITIVO VIENEN DIRECTO DE LA FICHA
+  const [form, setForm] = useState({
+    modo: patient.mode || '', 
+    impA: '', 
+    impV: '', 
+    impShock: '', 
+    batteryType: initialBatType, 
+    batteryPct: initialBatPct, 
+    batteryYears: initialBatYears, 
+    batteryMonths: initialBatMonths, 
+    isERI: false, 
+    isEOL: false, 
+    estimV: '', 
+    arrPMT: false, 
+    arrModo: false, 
+    arrRuido: false, 
+    arrOtros: '', 
+    conclusion: '', 
+    nextControl: ''
+  });
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const apiKey = getGeminiKey();
 
-  useEffect(() => { if (pdfFiles.length > 0) { const url = URL.createObjectURL(pdfFiles[0]); setPdfUrl(url); return () => URL.revokeObjectURL(url); } }, [pdfFiles]);
+  useEffect(() => { 
+    if (pdfFiles.length > 0) { 
+      const url = URL.createObjectURL(pdfFiles[0]); 
+      setPdfUrl(url); 
+      return () => URL.revokeObjectURL(url); 
+    } 
+  }, [pdfFiles]);
 
   useEffect(() => {
     if (step !== 2) return; 
-    let conc = "Parámetros de funcionamiento dentro de límites normales."; let ctrl = "6 a 8 meses";
-    if (form.isEOL) { conc = "Dispositivo en Indicación de Recambio Inmediato."; ctrl = "Programar recambio"; }
-    else if (form.isERI) { conc = "Dispositivo con Indicación de Recambio alcanzada."; ctrl = "Programar recambio"; }
-    else {
-      const arrs = []; if(form.arrPMT) arrs.push("PMT"); if(form.arrModo) arrs.push("Cambios de Modo"); if(form.arrRuido) arrs.push("Ruido Auricular"); if(form.arrOtros) arrs.push(form.arrOtros);
+    let conc = "Parámetros de funcionamiento dentro de límites normales."; 
+    let ctrl = "6 a 8 meses";
+    
+    if (form.isEOL) { 
+      conc = "Dispositivo en Indicación de Recambio Inmediato (Fin de Vida)."; 
+      ctrl = "Programar recambio"; 
+    } else if (form.isERI) { 
+      conc = "Dispositivo con Indicación de Recambio alcanzada (ERI)."; 
+      ctrl = "Programar recambio"; 
+    } else {
+      const arrs = []; 
+      if(form.arrPMT) arrs.push("PMT"); 
+      if(form.arrModo) arrs.push("Cambios de Modo"); 
+      if(form.arrRuido) arrs.push("Ruido Auricular"); 
+      if(form.arrOtros) arrs.push(form.arrOtros);
       if (arrs.length > 0) conc += ` Se detectaron episodios de: ${arrs.join(', ')}.`;
+      
       let isLow = false;
       if (form.batteryType === 'percent' && parseFloat(form.batteryPct) < 30) isLow = true;
       if (form.batteryType === 'time' && (parseInt(form.batteryYears)||0) < 1) isLow = true;
       if (isLow) ctrl = "3 meses";
     }
-    set('conclusion', conc); set('nextControl', ctrl);
+    set('conclusion', conc); 
+    set('nextControl', ctrl);
   }, [form.isERI, form.isEOL, form.arrPMT, form.arrModo, form.arrRuido, form.arrOtros, form.batteryType, form.batteryPct, form.batteryYears, form.batteryMonths, step]);
 
   async function handleFileUpload(files) {
@@ -819,59 +872,55 @@ function AIReportGenerator({patient, onClose}) {
     try {
       const arrayBuffer = await mainFile.arrayBuffer(); 
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-      let fullText = ''; 
+      let relevantText = ''; 
+      
+      // FILTRO INTELIGENTE DE PÁGINAS (Leemos solo 1, 2 y última)
       for (let i = 1; i <= pdf.numPages; i++) { 
-        const page = await pdf.getPage(i); 
-        const textContent = await page.getTextContent(); 
-        // Filtramos líneas basura de coordenadas del electrograma
-        const cleanPageText = textContent.items
-          .map(item => item.str)
-          .filter(str => !str.match(/^[0-9]{3,4}$/)) 
-          .join(' ');
-        fullText += `--- PÁGINA ${i} ---\n` + cleanPageText + ' \n'; 
+        const isTargetPage = (pdf.numPages <= 3) || (i === 1) || (i === 2) || (i === pdf.numPages);
+
+        if (isTargetPage) {
+          const page = await pdf.getPage(i); 
+          const textContent = await page.getTextContent(); 
+          const pageStr = textContent.items.map(item => item.str).join(' ');
+          
+          if (!pageStr.includes('Registro congelado sin guardar') && !pageStr.includes('Captura de imágenes congeladas')) {
+            relevantText += `\n[PÁGINA ${i}]\n` + pageStr;
+          }
+        }
       }
 
       setStatus('ia');
-      const prompt = `Actúa como médico especialista en electrofisiología cardiaca y marcapasos.
-Analiza este texto extraído de un informe de control y extrae los datos técnicos.
+      // Prompt enfocado en lo que realmente falta: Impedancias, Estimulación V y Arritmias
+      const prompt = `Actúa como un cardiólogo especialista en control de marcapasos.
+Analiza este extracto de un control del paciente ${patient.apellido}, ${patient.nombre}.
+Dispositivo: ${patient.deviceType} (${patient.brand || ''}).
 
-REGLAS ESPECÍFICAS DE EXTRACCIÓN:
-1. "modo": Modo de estimulación (ej: "DDD", "DDDR-ADIR", "VVIR", "VVI").
-2. "impA": Impedancia Auricular en Ohms (Ω). En Biotronik busca bajo "Impedancia de estimulación" o "Imped. electrodos" en la columna "A". En Abbott/St.Jude fila A. En Boston columna más reciente A. Extrae solo el número.
-3. "impV": Impedancia Ventricular en Ohms (Ω). Busca en "Impedancia de estimulación" o "Imped. electrodos" columna "V" o "Ventrículo". Extrae solo el número.
-4. "impShock": Solo si es DAI o Resincronizador. Caso contrario "".
-5. "estimV": Porcentaje (%) de estimulación ventricular. En Biotronik busca "Vp" o en "Estimulación en A/V [%]" (ej. "50/72" -> extrae 72) o en "Estimulación [%]: 68". Extrae solo el número.
-6. "batteryType": Si da % pon "percent". Si da años/meses pon "time".
-7. "batteryPct": Solo número si batteryType es "percent".
-8. "batteryYears": Número de años si batteryType es "time".
-9. "batteryMonths": Número de meses si batteryType es "time".
-10. "isERI": true si ERI/IRE está alcanzado o batería <25% o <1 año. Si dice ERI estimado en varios años y estado OK, pon false.
-11. "isEOL": true si Fin de Vida.
-12. "arrPMT": true si hubo episodios de PMT.
-13. "arrModo": true si hubo cambios de modo (CAM/RTA) o carga de cambio de modo > 0.
-14. "arrRuido": true si hubo reversión por ruido.
+Extrae únicamente los siguientes datos técnicos:
+1. "modo": Modo de estimulación (si figura en el reporte ej: DDDR, DDDR-ADIR, VVIR, VVI; si no, deja "${patient.mode || ''}").
+2. "impA": Impedancia Auricular en Ohms (Ω). Busca bajo "Impedancia de estim.", "Imped. electrodos", columna/fila A o Auricular. Si es unicameral V, pon "".
+3. "impV": Impedancia Ventricular en Ohms (Ω). Busca bajo "Impedancia de estim.", "Imped. electrodos", "Impedancia medida", columna/fila V o Ventricular.
+4. "impShock": Impedancia de choque si es DAI/Resincronizador, caso contrario "".
+5. "estimV": Porcentaje de estimulación ventricular (% o Vp o Estimulado). Solo el número (ej: 99, 72, 1, 68).
+6. "arrPMT": true si hubo episodios de PMT, sino false.
+7. "arrModo": true si hubo episodios de Cambio de Modo (CAM / RTA / cambios de modo > 0), sino false.
+8. "arrRuido": true si hubo reversión o detección de ruido en electrodos, sino false.
+9. "arrOtros": Breve texto si se describen otras arritmias (o "").
 
-Devuelve ÚNICAMENTE un objeto JSON válido:
+Devuelve EXCLUSIVAMENTE este JSON:
 {
   "modo": "string",
   "impA": "string",
   "impV": "string",
   "impShock": "string",
   "estimV": "string",
-  "batteryType": "percent" | "time",
-  "batteryPct": "string",
-  "batteryYears": "string",
-  "batteryMonths": "string",
-  "isERI": boolean,
-  "isEOL": boolean,
-  "arrPMT": boolean,
-  "arrModo": boolean,
-  "arrRuido": boolean,
-  "arrOtros": "string"
+  "arrPMT": false,
+  "arrModo": false,
+  "arrRuido": false,
+  "arrOtros": ""
 }
 
-Texto del documento:
-${fullText}`;
+Texto del informe:
+${relevantText}`;
 
       const waitMs = (ms) => new Promise(res => setTimeout(res, ms));
       let apiResultData = null;
@@ -901,22 +950,21 @@ ${fullText}`;
           }
 
           const errText = await response.text();
-          lastApiError = new Error(`Intento ${attempt} falló (${response.status}): ${errText}`);
+          lastApiError = new Error(`Intento ${attempt} (${response.status}): ${errText}`);
 
           if (response.status === 503 && attempt < maxRetries) {
-            console.warn(`Servidor con alta demanda (503). Reintentando en ${attempt * 1.5}s...`);
-            await waitMs(attempt * 1500);
+            await waitMs(1200);
           } else {
             break;
           }
         } catch (netErr) {
           lastApiError = netErr;
-          if (attempt < maxRetries) await waitMs(1500);
+          if (attempt < maxRetries) await waitMs(1200);
         }
       }
 
       if (!apiResultData || !apiResultData.candidates || !apiResultData.candidates[0]?.content?.parts?.[0]?.text) {
-        throw lastApiError || new Error("No se obtuvo respuesta válida de Gemini tras los reintentos.");
+        throw lastApiError || new Error("No se obtuvo respuesta válida de Gemini.");
       }
 
       let jsonText = apiResultData.candidates[0].content.parts[0].text;
@@ -924,19 +972,14 @@ ${fullText}`;
       if (jsonMatch) jsonText = jsonMatch[0];
       const result = JSON.parse(jsonText);
 
+      // Fusionamos: Modo, Tipo y Batería de la ficha/consulta + Impedancias y Arritmias de la IA
       setForm(prev => ({
         ...prev,
-        modo: result.modo || prev.modo || '',
+        modo: result.modo || prev.modo || patient.mode || '',
         impA: result.impA || '',
         impV: result.impV || '',
         impShock: result.impShock || '',
         estimV: result.estimV || '',
-        batteryType: result.batteryType || prev.batteryType,
-        batteryPct: result.batteryPct || prev.batteryPct,
-        batteryYears: result.batteryYears || prev.batteryYears,
-        batteryMonths: result.batteryMonths || prev.batteryMonths,
-        isERI: !!result.isERI,
-        isEOL: !!result.isEOL,
         arrPMT: !!result.arrPMT,
         arrModo: !!result.arrModo,
         arrRuido: !!result.arrRuido,
@@ -953,71 +996,236 @@ ${fullText}`;
 
   async function generateFinalPDF() {
     try {
-      setStatus('generando'); const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-      doc.setFillColor(26, 86, 219); doc.rect(0, 0, 210, 30, 'F'); doc.setTextColor(255, 255, 255); doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.text('Informe de Control de Dispositivo', 14, 18); doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(`Sede: Bolívar — Fecha: ${todayStr()}`, 14, 25);
-      doc.setTextColor(26, 32, 44); doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text(`Paciente: ${patient.apellido}, ${patient.nombre}`, 14, 45); doc.setFontSize(11); doc.setFont('helvetica', 'normal'); doc.text(`Dispositivo: ${patient.deviceType} ${patient.brand} (${form.modo || 'N/A'})`, 14, 52);
-      const age = calcAge(patient.dob); if(age) doc.text(`Edad: ${age} años`, 14, 58);
-      doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.5); doc.line(14, 65, 196, 65);
-      let y = 75; doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text('Parámetros Eléctricos y Estado:', 14, y); y+=8;
-      doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(`Impedancia Auricular:`, 14, y); doc.setFont('helvetica', 'bold'); doc.text(`${form.impA ? form.impA + ' Ω' : '—'}`, 60, y); doc.setFont('helvetica', 'normal'); doc.text(`Impedancia Ventricular:`, 105, y); doc.setFont('helvetica', 'bold'); doc.text(`${form.impV ? form.impV + ' Ω' : '—'}`, 155, y); y+=8;
-      if(patient.deviceType === 'Desfibrilador' || patient.deviceType === 'Resincronizador') { doc.setFont('helvetica', 'normal'); doc.text(`Impedancia Choque:`, 14, y); doc.setFont('helvetica', 'bold'); doc.text(`${form.impShock ? form.impShock + ' Ω' : '—'}`, 60, y); y+=8; }
-      doc.setFont('helvetica', 'normal'); doc.text(`Estimulación Ventricular:`, 14, y); doc.setFont('helvetica', 'bold'); doc.text(`${form.estimV ? form.estimV + '%' : '—'}`, 60, y); y+=10;
+      setStatus('generando'); 
+      const { jsPDF } = window.jspdf; 
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      
+      doc.setFillColor(26, 86, 219); 
+      doc.rect(0, 0, 210, 30, 'F'); 
+      doc.setTextColor(255, 255, 255); 
+      doc.setFontSize(20); 
+      doc.setFont('helvetica', 'bold'); 
+      doc.text('Informe de Control de Dispositivo', 14, 18); 
+      doc.setFontSize(10); 
+      doc.setFont('helvetica', 'normal'); 
+      doc.text(`Sede: Bolívar — Fecha: ${todayStr()}`, 14, 25);
+      
+      doc.setTextColor(26, 32, 44); 
+      doc.setFontSize(14); 
+      doc.setFont('helvetica', 'bold'); 
+      doc.text(`Paciente: ${patient.apellido}, ${patient.nombre}`, 14, 45); 
+      doc.setFontSize(11); 
+      doc.setFont('helvetica', 'normal'); 
+      // Tipo y Marca exactos de la ficha
+      doc.text(`Dispositivo: ${patient.deviceType} ${patient.brand} (${form.modo || patient.mode || 'N/A'})`, 14, 52);
+      
+      const age = calcAge(patient.dob); 
+      if(age) doc.text(`Edad: ${age} años`, 14, 58);
+      
+      doc.setDrawColor(226, 232, 240); 
+      doc.setLineWidth(0.5); 
+      doc.line(14, 65, 196, 65);
+      
+      let y = 75; 
+      doc.setFontSize(12); 
+      doc.setFont('helvetica', 'bold'); 
+      doc.text('Parámetros Eléctricos y Estado:', 14, y); 
+      y+=8;
+      
+      doc.setFontSize(10); 
+      doc.setFont('helvetica', 'normal'); 
+      doc.text(`Impedancia Auricular:`, 14, y); 
+      doc.setFont('helvetica', 'bold'); 
+      doc.text(`${form.impA ? form.impA + ' Ω' : '—'}`, 60, y); 
+      doc.setFont('helvetica', 'normal'); 
+      doc.text(`Impedancia Ventricular:`, 105, y); 
+      doc.setFont('helvetica', 'bold'); 
+      doc.text(`${form.impV ? form.impV + ' Ω' : '—'}`, 155, y); 
+      y+=8;
+      
+      // Si en la ficha figura Desfibrilador o Resincronizador
+      if(patient.deviceType === 'Desfibrilador' || patient.deviceType === 'Resincronizador') { 
+        doc.setFont('helvetica', 'normal'); 
+        doc.text(`Impedancia Choque:`, 14, y); 
+        doc.setFont('helvetica', 'bold'); 
+        doc.text(`${form.impShock ? form.impShock + ' Ω' : '—'}`, 60, y); 
+        y+=8; 
+      }
+      
+      doc.setFont('helvetica', 'normal'); 
+      doc.text(`Estimulación Ventricular:`, 14, y); 
+      doc.setFont('helvetica', 'bold'); 
+      doc.text(`${form.estimV ? form.estimV + '%' : '—'}`, 60, y); 
+      y+=10;
+      
       let batTxt = batteryDisplay({...patient, batteryType: form.batteryType, batteryPct: form.batteryPct, batteryYears: form.batteryYears, batteryMonths: form.batteryMonths});
-      if(form.isEOL) batTxt = "EOL (Fin de Vida / Recambio Inmediato)"; else if(form.isERI) batTxt = "ERI (Indicación de Recambio)";
-      doc.setFillColor(247, 250, 252); doc.rect(14, y-5, 182, 10, 'F'); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 86, 219); doc.text(`Estado de Batería: ${batTxt}`, 16, y+1); y+=15;
-      doc.setTextColor(26, 32, 44); doc.setFillColor(240, 247, 255); doc.rect(14, y-5, 182, 35, 'F'); doc.setFont('helvetica', 'bold'); doc.text('Conclusión Clínica:', 16, y); y+=7; doc.setFont('helvetica', 'normal'); const splitConc = doc.splitTextToSize(form.conclusion, 175); doc.text(splitConc, 16, y); y+=25;
-      doc.setFont('helvetica', 'bold'); doc.text(`Próximo Control Sugerido: ${form.nextControl}`, 14, y); y+=15;
-      doc.setFontSize(9); doc.setFont('helvetica', 'italic'); doc.setTextColor(113, 128, 150); doc.text('Los valores de impedancia y sensibilidad se consideran normales según las', 14, y); doc.text('especificaciones técnicas del fabricante del dispositivo.', 14, y+5);
+      if(form.isEOL) batTxt = "EOL (Fin de Vida / Recambio Inmediato)"; 
+      else if(form.isERI) batTxt = "ERI (Indicación de Recambio)";
+      
+      doc.setFillColor(247, 250, 252); 
+      doc.rect(14, y-5, 182, 10, 'F'); 
+      doc.setFont('helvetica', 'bold'); 
+      doc.setTextColor(26, 86, 219); 
+      doc.text(`Estado de Batería: ${batTxt}`, 16, y+1); 
+      y+=15;
+      
+      doc.setTextColor(26, 32, 44); 
+      doc.setFillColor(240, 247, 255); 
+      doc.rect(14, y-5, 182, 35, 'F'); 
+      doc.setFont('helvetica', 'bold'); 
+      doc.text('Conclusión Clínica:', 16, y); 
+      y+=7; 
+      doc.setFont('helvetica', 'normal'); 
+      const splitConc = doc.splitTextToSize(form.conclusion, 175); 
+      doc.text(splitConc, 16, y); 
+      y+=25;
+      
+      doc.setFont('helvetica', 'bold'); 
+      doc.text(`Próximo Control Sugerido: ${form.nextControl}`, 14, y); 
+      y+=15;
+      
+      doc.setFontSize(9); 
+      doc.setFont('helvetica', 'italic'); 
+      doc.setTextColor(113, 128, 150); 
+      doc.text('Los valores de impedancia y sensibilidad se consideran normales según las', 14, y); 
+      doc.text('especificaciones técnicas del fabricante del dispositivo.', 14, y+5);
 
-      const coverBuf = doc.output('arraybuffer'); const { PDFDocument } = window.PDFLib; const mergedDoc = await PDFDocument.create(); const coverDoc = await PDFDocument.load(coverBuf); const coverPages = await mergedDoc.copyPages(coverDoc, [0]); mergedDoc.addPage(coverPages[0]);
-      for (const file of pdfFiles) { const fileBuf = await file.arrayBuffer(); const extDoc = await PDFDocument.load(fileBuf); const pages = await mergedDoc.copyPages(extDoc, extDoc.getPageIndices()); pages.forEach(p => mergedDoc.addPage(p)); }
-      const mergedBytes = await mergedDoc.save(); const blob = new Blob([mergedBytes], { type: 'application/pdf' }); const url = URL.createObjectURL(blob);
-      const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]; const now = new Date(); const finalFileName = `${patient.apellido} ${patient.nombre} - ${monthNames[now.getMonth()]} ${now.getFullYear()}.pdf`;
-      const a = document.createElement('a'); a.href = url; a.download = finalFileName; a.click();
-      setStatus('¡Informe generado con éxito!'); setTimeout(onClose, 2000);
-    } catch(err) { setStatus('Error al generar el PDF final.'); }
+      const coverBuf = doc.output('arraybuffer'); 
+      const { PDFDocument } = window.PDFLib; 
+      const mergedDoc = await PDFDocument.create(); 
+      const coverDoc = await PDFDocument.load(coverBuf); 
+      const coverPages = await mergedDoc.copyPages(coverDoc, [0]); 
+      mergedDoc.addPage(coverPages[0]);
+      
+      for (const file of pdfFiles) { 
+        const fileBuf = await file.arrayBuffer(); 
+        const extDoc = await PDFDocument.load(fileBuf); 
+        const pages = await mergedDoc.copyPages(extDoc, extDoc.getPageIndices()); 
+        pages.forEach(p => mergedDoc.addPage(p)); 
+      }
+      
+      const mergedBytes = await mergedDoc.save(); 
+      const blob = new Blob([mergedBytes], { type: 'application/pdf' }); 
+      const url = URL.createObjectURL(blob); 
+      const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]; 
+      const now = new Date(); 
+      const finalFileName = `${patient.apellido} ${patient.nombre} - ${monthNames[now.getMonth()]} ${now.getFullYear()}.pdf`;
+      const a = document.createElement('a'); 
+      a.href = url; 
+      a.download = finalFileName; 
+      a.click();
+      
+      setStatus('¡Informe generado con éxito!'); 
+      setTimeout(onClose, 2000);
+    } catch(err) { 
+      setStatus('Error al generar el PDF final.'); 
+    }
   }
 
   return (
     <div className="modal-overlay" style={{zIndex:300}}>
       <div className="modal modal-lg">
-        <div className="modal-header"><span className="modal-title">📄 Generador Inteligente de Informes</span><button className="btn btn-sm" onClick={onClose}>✕</button></div>
+        <div className="modal-header">
+          <span className="modal-title">📄 Generador Inteligente de Informes</span>
+          <button className="btn btn-sm" onClick={onClose}>✕</button>
+        </div>
         <div className="modal-body">
-          <div style={{background:'#ebf8ff', padding:'10px 15px', borderRadius:8, marginBottom:15, fontSize:13}}><strong>Paciente:</strong> {patient.apellido}, {patient.nombre} | <strong>Dispositivo:</strong> {patient.deviceType} {patient.brand}</div>
+          <div style={{background:'#ebf8ff', padding:'10px 15px', borderRadius:8, marginBottom:15, fontSize:13}}>
+            <strong>Paciente:</strong> {patient.apellido}, {patient.nombre} | <strong>Dispositivo:</strong> {patient.deviceType} {patient.brand}
+          </div>
+          
           {step === 1 && (
             <div style={{textAlign:'center', padding:'2rem'}}>
-              <div className={`file-drop${dragging?' over':''}`} onClick={()=>document.getElementById('pdf-upload').click()} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);handleFileUpload(e.dataTransfer.files)}}>
+              <div 
+                className={`file-drop${dragging?' over':''}`} 
+                onClick={()=>document.getElementById('pdf-upload').click()} 
+                onDragOver={e=>{e.preventDefault();setDragging(true)}} 
+                onDragLeave={()=>setDragging(false)} 
+                onDrop={e=>{e.preventDefault();setDragging(false);handleFileUpload(e.dataTransfer.files)}}
+              >
                 <div className="file-drop-icon">📑</div>
-                {status === 'leyendo' ? <><div className="spinner"></div><p style={{marginTop:10}}>Extrayendo texto...</p></> : status === 'ia' ? <><div className="spinner"></div><p style={{marginTop:10}}>Gemini analizando...</p></> : <><p style={{fontWeight:600}}>Carga Automática con IA</p><p style={{fontSize:12, color:'#718096', marginTop:4}}>Arrastrá UNO o VARIOS PDFs aquí</p></>}
+                {status === 'leyendo' ? (
+                  <><div className="spinner"></div><p style={{marginTop:10}}>Leyendo páginas clave del informe...</p></>
+                ) : status === 'ia' ? (
+                  <><div className="spinner"></div><p style={{marginTop:10}}>Analizando impedancias y arritmias...</p></>
+                ) : (
+                  <><p style={{fontWeight:600}}>Carga Automática con IA</p><p style={{fontSize:12, color:'#718096', marginTop:4}}>Arrastra el PDF (Biotronik, Medtronic, Boston o Abbott)</p></>
+                )}
               </div>
               <input id="pdf-upload" type="file" accept=".pdf" multiple style={{display:'none'}} onChange={e=>handleFileUpload(e.target.files)}/>
-              <div className="divider">o</div><button className="btn" onClick={()=>setStep(2)}>📝 Carga Manual (Sin PDF)</button>
+              <div className="divider">o</div>
+              <button className="btn" onClick={()=>setStep(2)}>📝 Carga Manual (Sin PDF)</button>
               {status && status.startsWith('Error') && <div className="alert alert-error" style={{marginTop:15}}>⚠ {status}</div>}
             </div>
           )}
+
           {step === 2 && (
             <div>
-              <div className="section-title">1. Parámetros Extraídos
-                <div style={{display:'flex', gap:8}}>{pdfFiles.length > 0 && (<button className="btn btn-xs btn-info" onClick={() => setShowViewer(!showViewer)}>{showViewer ? '🙈 Ocultar PDF' : '👁️ Ver PDF Original'}</button>)}<label className="btn btn-xs" style={{cursor:'pointer', margin:0}}>➕ Adjuntar otro PDF <input type="file" accept=".pdf" multiple style={{display:'none'}} onChange={e=>setPdfFiles(prev => [...prev, ...Array.from(e.target.files)])}/></label></div>
+              <div className="section-title">
+                1. Parámetros Extraídos
+                <div style={{display:'flex', gap:8}}>
+                  {pdfFiles.length > 0 && (
+                    <button className="btn btn-xs btn-info" onClick={() => setShowViewer(!showViewer)}>
+                      {showViewer ? '🙈 Ocultar PDF' : '👁️ Ver PDF Original'}
+                    </button>
+                  )}
+                  <label className="btn btn-xs" style={{cursor:'pointer', margin:0}}>
+                    ➕ Adjuntar otro PDF 
+                    <input type="file" accept=".pdf" multiple style={{display:'none'}} onChange={e=>setPdfFiles(prev => [...prev, ...Array.from(e.target.files)])}/>
+                  </label>
+                </div>
               </div>
-              {showViewer && pdfUrl && (<div style={{marginBottom: '1rem', border: '1px solid #cbd5e0', borderRadius: '8px', overflow: 'hidden'}}><iframe src={pdfUrl} width="100%" height="400px" style={{border: 'none', display: 'block'}}></iframe></div>)}
-              <div className="grid4"><div className="form-group"><label>Modo</label><input value={form.modo} onChange={e=>set('modo',e.target.value)} placeholder="DDD..."/></div><div className="form-group"><label>Impedancia A (Ω)</label><input value={form.impA} onChange={e=>set('impA',e.target.value)}/></div><div className="form-group"><label>Impedancia V (Ω)</label><input value={form.impV} onChange={e=>set('impV',e.target.value)}/></div><div className="form-group"><label>Estimulación V (%)</label><input value={form.estimV} onChange={e=>set('estimV',e.target.value)}/></div></div>
-              {(patient.deviceType==='Desfibrilador'||patient.deviceType==='Resincronizador') && (<div className="form-group" style={{maxWidth:200}}><label>Imp. Choque (Ω)</label><input value={form.impShock} onChange={e=>set('impShock',e.target.value)}/></div>)}
-              <div className="section-title">2. Batería y Estado</div>
+
+              {showViewer && pdfUrl && (
+                <div style={{marginBottom: '1rem', border: '1px solid #cbd5e0', borderRadius: '8px', overflow: 'hidden'}}>
+                  <iframe src={pdfUrl} width="100%" height="400px" style={{border: 'none', display: 'block'}}></iframe>
+                </div>
+              )}
+
+              <div className="grid4">
+                <div className="form-group"><label>Modo</label><input value={form.modo} onChange={e=>set('modo',e.target.value)} placeholder="DDD..."/></div>
+                <div className="form-group"><label>Impedancia A (Ω)</label><input value={form.impA} onChange={e=>set('impA',e.target.value)} placeholder="—"/></div>
+                <div className="form-group"><label>Impedancia V (Ω)</label><input value={form.impV} onChange={e=>set('impV',e.target.value)} placeholder="—"/></div>
+                <div className="form-group"><label>Estimulación V (%)</label><input value={form.estimV} onChange={e=>set('estimV',e.target.value)} placeholder="—"/></div>
+              </div>
+
+              {(patient.deviceType==='Desfibrilador'||patient.deviceType==='Resincronizador') && (
+                <div className="form-group" style={{maxWidth:200}}><label>Imp. Choque (Ω)</label><input value={form.impShock} onChange={e=>set('impShock',e.target.value)}/></div>
+              )}
+
+              <div className="section-title">2. Batería y Estado (Tomado del Control / Ficha)</div>
               <div style={{display:'flex', gap:20, alignItems:'center', background:'#f7fafc', padding:15, borderRadius:8, marginBottom:15, border:'0.5px solid #e2e8f0'}}>
-                <div style={{borderRight:'1px solid #cbd5e0', paddingRight:20}}><label className="radio-label"><input type="checkbox" checked={form.isERI} onChange={e=>set('isERI',e.target.checked)}/> Ind. Recambio (ERI)</label><label className="radio-label" style={{marginTop:5}}><input type="checkbox" checked={form.isEOL} onChange={e=>set('isEOL',e.target.checked)}/> Fin de Vida (EOL)</label></div>
-                <div style={{flex:1}}><BatteryFields form={form} set={set} disabled={form.isERI || form.isEOL}/></div>
+                <div style={{borderRight:'1px solid #cbd5e0', paddingRight:20}}>
+                  <label className="radio-label"><input type="checkbox" checked={form.isERI} onChange={e=>set('isERI',e.target.checked)}/> Ind. Recambio (ERI)</label>
+                  <label className="radio-label" style={{marginTop:5}}><input type="checkbox" checked={form.isEOL} onChange={e=>set('isEOL',e.target.checked)}/> Fin de Vida (EOL)</label>
+                </div>
+                <div style={{flex:1}}>
+                  <BatteryFields form={form} set={set} disabled={form.isERI || form.isEOL}/>
+                </div>
               </div>
+
               <div className="section-title">3. Arritmias Detectadas</div>
-              <div style={{display:'flex', gap:15, flexWrap:'wrap', marginBottom:15}}><label className="radio-label"><input type="checkbox" checked={form.arrPMT} onChange={e=>set('arrPMT',e.target.checked)}/> PMT</label><label className="radio-label" style={{marginTop:5}}><input type="checkbox" checked={form.arrModo} onChange={e=>set('arrModo',e.target.checked)}/> Cambios de Modo</label><label className="radio-label" style={{marginTop:5}}><input type="checkbox" checked={form.arrRuido} onChange={e=>set('arrRuido',e.target.checked)}/> Ruido Auricular</label><input style={{width:'auto', flex:1}} value={form.arrOtros} onChange={e=>set('arrOtros',e.target.value)} placeholder="Otras..."/></div>
+              <div style={{display:'flex', gap:15, flexWrap:'wrap', marginBottom:15}}>
+                <label className="radio-label"><input type="checkbox" checked={form.arrPMT} onChange={e=>set('arrPMT',e.target.checked)}/> PMT</label>
+                <label className="radio-label" style={{marginTop:5}}><input type="checkbox" checked={form.arrModo} onChange={e=>set('arrModo',e.target.checked)}/> Cambios de Modo</label>
+                <label className="radio-label" style={{marginTop:5}}><input type="checkbox" checked={form.arrRuido} onChange={e=>set('arrRuido',e.target.checked)}/> Ruido Auricular</label>
+                <input style={{width:'auto', flex:1}} value={form.arrOtros} onChange={e=>set('arrOtros',e.target.value)} placeholder="Otras..."/>
+              </div>
+
               <div className="section-title">4. Conclusión Automática</div>
               <div className="form-group"><textarea rows={2} value={form.conclusion} onChange={e=>set('conclusion',e.target.value)} style={{fontWeight:500}}/></div>
               <div className="form-group" style={{maxWidth:300}}><label>Próximo Control en</label><input value={form.nextControl} onChange={e=>set('nextControl',e.target.value)}/></div>
-              {status === 'generando' && <div className="alert alert-info">⏳ Generando informe y fusionando...</div>}{status === '¡Informe generado con éxito!' && <div className="alert alert-success">✓ {status}</div>}
+              
+              {status === 'generando' && <div className="alert alert-info">⏳ Generando informe y fusionando...</div>}
+              {status === '¡Informe generado con éxito!' && <div className="alert alert-success">✓ {status}</div>}
             </div>
           )}
         </div>
-        <div className="modal-footer">{step === 2 && <button className="btn" onClick={()=>setStep(1)}>Volver</button>}<button className="btn" onClick={onClose}>Cancelar</button>{step === 2 && <button className="btn btn-primary" onClick={generateFinalPDF}>🖨 Guardar PDF</button>}</div>
+        <div className="modal-footer">
+          {step === 2 && <button className="btn" onClick={()=>setStep(1)}>Volver</button>}
+          <button className="btn" onClick={onClose}>Cancelar</button>
+          {step === 2 && <button className="btn btn-primary" onClick={generateFinalPDF}>🖨 Guardar PDF</button>}
+        </div>
       </div>
     </div>
   );
