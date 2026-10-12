@@ -1231,6 +1231,30 @@ ${relevantText}`;
   );
 }
 
+function sendReportViaWhatsApp(patient) {
+  if (!patient.telNum) {
+    alert("Este paciente no tiene número de teléfono cargado.");
+    return;
+  }
+
+  // Normalizamos el número a formato internacional (549...)
+  let phone = `${patient.telPrefix || ''}${patient.telNum || ''}`.replace(/\D/g, '');
+  if (phone.length >= 10 && !phone.startsWith('54')) {
+    phone = `549${phone}`;
+  }
+
+  // Obtenemos la fecha de la última consulta o la fecha de hoy si no hay ninguna
+  const cs = patient.consultas || [];
+  const fechaControl = cs.length > 0 ? cs[cs.length - 1].date : todayStr();
+
+  // Nombre para el saludo
+  const receptor = patient.telOwner === 'Paciente' ? patient.nombre : `${patient.nombre} (vía ${patient.telContact || patient.telOwner})`;
+
+  const mensaje = `Hola ${receptor}, aqui te envio tu informe correspondiente al dia ${fechaControl}, muchas gracias. Mariano Lumbreras.`;
+
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(mensaje)}`, '_blank');
+}
+
 function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta, role}){
   const { showConfirm } = useDialog();
   const[tab,setTab]=useState('info');
@@ -1305,9 +1329,53 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta, r
               <div className="grid2">
                 <div>
                   <div className="section-title">Datos Personales</div>
-                  {[['Fecha de Nac.',patient.dob||'—'],['Edad',age?`${age} años`:'—'],['Teléfono',`${patient.telPrefix} ${patient.telNum}`+(patient.telOwner!=='Paciente'?` · ${patient.telOwner}: ${patient.telContact}`:'')],['Ciudad',patient.city||'—'],['Dirección',`${patient.street||''} ${patient.streetNum||''}`.trim()||'—']].map(([k,v])=>(
-                    <div key={k} style={{display:'flex',gap:8,marginBottom:6,fontSize:13}}><span style={{color:'#718096',minWidth:100,fontWeight:500}}>{k}</span><span>{v}</span></div>
-                  ))}
+                  
+                  <div style={{display:'flex',gap:8,marginBottom:6,fontSize:13}}>
+                    <span style={{color:'#718096',minWidth:100,fontWeight:500}}>Fecha de Nac.</span>
+                    <span>{patient.dob||'—'}</span>
+                  </div>
+
+                  <div style={{display:'flex',gap:8,marginBottom:6,fontSize:13}}>
+                    <span style={{color:'#718096',minWidth:100,fontWeight:500}}>Edad</span>
+                    <span>{age?`${age} años`:'—'}</span>
+                  </div>
+
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,fontSize:13}}>
+                    <span style={{color:'#718096',minWidth:100,fontWeight:500}}>Teléfono</span>
+                    <span>
+                      {patient.telPrefix} {patient.telNum}
+                      {patient.telOwner !== 'Paciente' ? ` (${patient.telOwner}: ${patient.telContact})` : ''}
+                    </span>
+                    {patient.telNum && (
+                      <button 
+                        className="btn btn-xs btn-success" 
+                        style={{background: '#25D366', borderColor: '#25D366', color: '#fff', marginLeft: 6}}
+                        onClick={() => {
+                          let phone = `${patient.telPrefix || ''}${patient.telNum || ''}`.replace(/\D/g, '');
+                          if (phone.length >= 10 && !phone.startsWith('54')) phone = `549${phone}`;
+                          const cs = patient.consultas || [];
+                          const fechaControl = cs.length > 0 ? cs[cs.length - 1].date : todayStr();
+                          const receptor = patient.telOwner === 'Paciente' ? patient.nombre : `${patient.nombre} (vía ${patient.telContact || patient.telOwner})`;
+                          const msg = `Hola ${receptor}, aqui te envio tu informe correspondiente al dia ${fechaControl}, muchas gracias. Mariano Lumbreras.`;
+                          window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                        }}
+                        title="Enviar informe por WhatsApp"
+                      >
+                        💬 Enviar Informe
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{display:'flex',gap:8,marginBottom:6,fontSize:13}}>
+                    <span style={{color:'#718096',minWidth:100,fontWeight:500}}>Ciudad</span>
+                    <span>{patient.city||'—'}</span>
+                  </div>
+
+                  <div style={{display:'flex',gap:8,marginBottom:6,fontSize:13}}>
+                    <span style={{color:'#718096',minWidth:100,fontWeight:500}}>Dirección</span>
+                    <span>{`${patient.street||''} ${patient.streetNum||''}`.trim()||'—'}</span>
+                  </div>
+
                   {patient.ausenciasCount > 0 && (
                     <div style={{marginTop: '10px', background: '#fffaf0', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fbd38d', fontSize: '12px', color: '#c05621'}}>
                       <strong>Historial de Ausencias:</strong> {patient.ausenciasCount} inasistencias registradas.
@@ -1315,7 +1383,7 @@ function PatientDetail({patientId,db,setDB,onClose,onEdit,initialOpenConsulta, r
                     </div>
                   )}
                 </div>
-                <div>
+                <div> 
                   <div className="section-title">Dispositivo</div>
                   {[['Tipo',patient.deviceType||'—'],['Marca',patient.brand||'—'],['Modo',patient.mode||'—'],['Batería',batteryDisplay(patient)],['Último Control',lastConsulta(patient)]].map(([k,v])=>(
                     <div key={k} style={{display:'flex',gap:8,marginBottom:6,fontSize:13}}><span style={{color:'#718096',minWidth:100,fontWeight:500}}>{k}</span><span>{k==='Batería'?<span className={`badge ${batteryColor(patient)}`}>{v}</span>:v}</span></div>
@@ -2160,6 +2228,25 @@ function App(){
                       <span style={{textDecoration: p.fallecido ? 'line-through' : 'none', color: p.fallecido ? '#718096' : '#1a202c'}}>{p.apellido}, {p.nombre}</span>
                     </div>
                     <div style={{display:'flex', alignItems:'center', gap:'4px', flexWrap:'wrap', justifyContent:'flex-end'}}>
+                      {p.telNum && !p.fallecido && (
+                        <button 
+                          className="btn btn-xs btn-success" 
+                          style={{fontSize: '10px', background: '#25D366', borderColor: '#25D366', color: '#fff', padding: '2px 7px'}}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            let phone = `${p.telPrefix || ''}${p.telNum || ''}`.replace(/\D/g, '');
+                            if (phone.length >= 10 && !phone.startsWith('54')) phone = `549${phone}`;
+                            const cs = p.consultas || [];
+                            const fechaControl = cs.length > 0 ? cs[cs.length - 1].date : todayStr();
+                            const receptor = p.telOwner === 'Paciente' ? p.nombre : `${p.nombre} (vía ${p.telContact || p.telOwner})`;
+                            const msg = `Hola ${receptor}, aqui te envio tu informe correspondiente al dia ${fechaControl}, muchas gracias. Mariano Lumbreras.`;
+                            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                          }}
+                          title="Enviar informe por WhatsApp"
+                        >
+                          💬 Enviar
+                        </button>
+                      )}
                       {p.particular && <span className="badge badge-yellow" style={{fontSize: '9px'}}>Part.</span>}
                       {p.ausenciasCount > 0 && !p.fallecido && <span className="badge badge-orange" style={{fontSize: '9px'}} title={`Última ausencia: ${p.ultimaAusencia || 'N/A'}`}>⚠️ {p.ausenciasCount} {p.ausenciasCount === 1 ? 'falta' : 'faltas'}</span>}
                       {p.fallecido ? <span className="badge badge-red">Fallecido</span> : <span className={`badge ${batteryColor(p)}`}>{batteryDisplay(p)}</span>}
