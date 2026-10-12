@@ -873,29 +873,48 @@ Devuelve ÚNICAMENTE un JSON válido, sin explicaciones ni markdown:
 Texto del documento:
 ${fullText}`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.1
-          }
-        })
-      });
+      // Intentamos con fallback automático para evitar caídas por saturación (503)
+      const candidateModels = [
+        'gemini-2.0-flash',
+        'gemini-2.5-flash',
+        'gemini-3.8-flash'
+      ];
 
-      if (!response.ok) {
-        const errBody = await response.text();
-        throw new Error(`Error de conexión con IA (${response.status}): ${errBody}`);
+      let data = null;
+      let lastError = null;
+
+      for (const model of candidateModels) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.1
+              }
+            })
+          });
+
+          if (response.ok) {
+            data = await response.json();
+            break; // Si respondió bien, salimos del bucle y seguimos
+          }
+
+          const errText = await response.text();
+          lastError = new Error(`Status ${response.status} en ${model}: ${errText}`);
+          console.warn(`Modelo ${model} no disponible (${response.status}), probando siguiente...`);
+        } catch (netErr) {
+          lastError = netErr;
+        }
       }
 
-      const data = await response.json();
-      if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-        throw new Error("Respuesta incompleta de Gemini.");
+      if (!data || !data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+        throw lastError || new Error("No se obtuvo respuesta válida de los modelos disponibles.");
       }
 
       let jsonText = data.candidates[0].content.parts[0].text;
