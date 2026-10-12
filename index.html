@@ -814,11 +814,64 @@ function AIReportGenerator({patient, onClose}) {
       const arrayBuffer = await mainFile.arrayBuffer(); const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       let fullText = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const textContent = await page.getTextContent(); fullText += textContent.items.map(item => item.str).join(' ') + ' \n'; }
       setStatus('ia');
-      const prompt = `Actúa como un técnico experto en marcapasos. Analiza TODO este texto extraído de un informe de dispositivo cardíaco (puede ser Biotronik, Medtronic, Abbott, etc.). 
-      IMPORTANTE: La información suele estar muy dispersa. Revisa desde la primera hasta la última línea.
-      Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura exacta:
-      {"modo": "modo o vacío", "impA": "valor o vacío", "impV": "valor o vacío", "impShock": "valor o vacío", "estimV": "valor o vacío", "eri": true o false, "eol": true o false}
-      Texto completo a analizar: ${fullText}`;
+      const prompt = `Actúa como un médico especialista en electrofisiología cardiaca y marcapasos.
+Analiza TODO el texto extraído del informe del paciente e identifica primero el FABRICANTE para aplicar su regla de extracción:
+
+1. REGLAS POR MARCA:
+- BIOTRONIK:
+  * "modo": Busca en "Estado del dispositivo". Extrae el modo completo (ej. "DDDR-ADIR", "DDD", "VVI").
+  * "impA" e "impV": Busca en "Resultados de pruebas" -> "Impedancia de estimulación [Ω]". Extrae el número de la columna "A" y de la columna "V".
+  * "estimV": Busca en "Diagnóstico" -> "Estimulación en A/V [%]" (ej. "84/1" -> la V es 1) o "Vp" (ej. "1% Vp" -> 1).
+  * "batteryType": Si da porcentaje pon "percent" y en "batteryPct" el número. Si da años pon "time" con "batteryYears" y "batteryMonths".
+  * "arrModo": true si en "Cambio de modo" o "Episodios de cambio modo" hay 1 o más episodios.
+
+- MEDTRONIC:
+  * "modo": Busca en "Resumen de parámetros" o "Modos" -> "Modo" (ej. "VVIR", "DDDR").
+  * "impA" e "impV": Busca en "Resumen del cable" la "Impedancia medida" (ohmios) para Auricular y Ventricular. Si es unicameral VVIR, impA queda vacío "".
+  * "estimV": Busca en "Estimulación (% del total)" el valor "Estimulado" del ventrículo (ej. "99.6%").
+  * "batteryType": Si dice "Vida útil restante estimada: XX meses", calcula los años y meses (ej: 28 meses = 2 años, 4 meses), "batteryType": "time".
+  * "arrModo": true si hay episodios de frecuencia rápida auricular o cambio de modo.
+
+- BOSTON SCIENTIFIC:
+  * "modo": Busca en "Parámetros antibradicardia" -> "Modo" (ej. "DDDR").
+  * "impA" e "impV": Busca en "Datos de los cables" -> fila "Impedancia de estim." el valor numérico en la columna "Más reciente" para Auricular y Ventricular (ej. 741 y 573).
+  * "estimV": Busca en "Contadores Bradi" -> "Ventricular: XX% Estim" (ej. "99% Estim" -> 99).
+  * "batteryType": Busca en "Batería" -> "Tiempo aprox. para el explante" (ej. "3 años" -> batteryType: "time", batteryYears: 3, batteryMonths: 0).
+  * "arrModo": true si hay episodios de "RTA", "Camb. modo" o arritmias auriculares.
+
+- ST. JUDE MEDICAL / ABBOTT:
+  * "modo": Busca en "Resumen FastPath" o "Parámetros" -> "Modo" (ej. "DDDR").
+  * "impA" e "impV": Busca en "Resultados del test" -> columna "Impedancia del cable" los valores en Ohms para la fila A y la fila V (ej. 460 y 510).
+  * "estimV": Busca en "Resumen de diagnósticos" -> "VP" (ej. "<1%" -> extrae 1 o 0).
+  * "batteryType": Busca en "Batería" -> "Carga restante hasta IRE: XX%" (percent) o "Longevidad: X años" (time).
+  * "arrModo": true si "Episodios de CAM" o "Cambio de modo" es >= 1.
+  * "arrPMT": true si en "Detecciones PMT" o "Episodios de PMT" es >= 1.
+
+2. CRITERIOS DE RECAMBIO (ERI / EOL):
+- "eri": true SOLO si el dispositivo alcanzó el indicador de recambio (IRE / ERI activo, batería < 1 año o < 25%). Si dice que faltan varios años o el estado es OK, pon false.
+- "eol": true SOLO si está en fin de vida / reemplazo inmediato.
+
+Devuelve ÚNICAMENTE un JSON válido, sin explicaciones ni markdown:
+{
+  "modo": "string",
+  "impA": "string",
+  "impV": "string",
+  "impShock": "string",
+  "estimV": "string",
+  "batteryType": "percent" | "time",
+  "batteryPct": "string",
+  "batteryYears": "string",
+  "batteryMonths": "string",
+  "isERI": boolean,
+  "isEOL": boolean,
+  "arrPMT": boolean,
+  "arrModo": boolean,
+  "arrRuido": boolean,
+  "arrOtros": "string"
+}
+
+Texto del documento:
+${fullText}`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
       if (!response.ok) throw new Error(`Error de conexión con IA`);
@@ -826,7 +879,24 @@ function AIReportGenerator({patient, onClose}) {
       let jsonText = data.candidates[0].content.parts[0].text;
       const jsonMatch = jsonText.match(/\{[\s\S]*\}/); if (jsonMatch) jsonText = jsonMatch[0];
       const result = JSON.parse(jsonText);
-      setForm(prev => ({...prev, modo: result.modo || prev.modo || '', impA: result.impA || '', impV: result.impV || '', impShock: result.impShock || '', estimV: result.estimV || '', isERI: result.eri || false, isEOL: result.eol || false}));
+      setForm(prev => ({
+        ...prev,
+        modo: result.modo || prev.modo || '',
+        impA: result.impA || '',
+        impV: result.impV || '',
+        impShock: result.impShock || '',
+        estimV: result.estimV || '',
+        batteryType: result.batteryType || prev.batteryType,
+        batteryPct: result.batteryPct || prev.batteryPct,
+        batteryYears: result.batteryYears || prev.batteryYears,
+        batteryMonths: result.batteryMonths || prev.batteryMonths,
+        isERI: !!result.isERI,
+        isEOL: !!result.isEOL,
+        arrPMT: !!result.arrPMT,
+        arrModo: !!result.arrModo,
+        arrRuido: !!result.arrRuido,
+        arrOtros: result.arrOtros || ''
+      }));
       setStep(2); 
     } catch(err) { setStatus('Error procesando el PDF. Puedes completar los datos manualmente.'); setTimeout(() => setStep(2), 2000); }
   }
