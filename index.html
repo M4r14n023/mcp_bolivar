@@ -807,51 +807,51 @@ function AIReportGenerator({patient, onClose}) {
   async function handleFileUpload(files) {
     const arr = Array.from(files).filter(f => f.type === 'application/pdf');
     if(arr.length === 0) return;
-    const mainFile = arr[0]; setPdfFiles(prev => [...prev, ...arr]);
-    if(!apiKey) { if(window.confirm('No tienes configurada la API Key de Gemini. ¿Quieres llenar el formulario manualmente?')) setStep(2); return; }
+    const mainFile = arr[0]; 
+    setPdfFiles(prev => [...prev, ...arr]);
+    
+    if(!apiKey) { 
+      if(window.confirm('No tienes configurada la API Key de Gemini. ¿Quieres llenar el formulario manualmente?')) setStep(2); 
+      return; 
+    }
+
     setStatus('leyendo');
     try {
-      const arrayBuffer = await mainFile.arrayBuffer(); const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-      let fullText = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const textContent = await page.getTextContent(); fullText += textContent.items.map(item => item.str).join(' ') + ' \n'; }
+      const arrayBuffer = await mainFile.arrayBuffer(); 
+      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      let fullText = ''; 
+      for (let i = 1; i <= pdf.numPages; i++) { 
+        const page = await pdf.getPage(i); 
+        const textContent = await page.getTextContent(); 
+        // Filtramos líneas basura de coordenadas del electrograma
+        const cleanPageText = textContent.items
+          .map(item => item.str)
+          .filter(str => !str.match(/^[0-9]{3,4}$/)) 
+          .join(' ');
+        fullText += `--- PÁGINA ${i} ---\n` + cleanPageText + ' \n'; 
+      }
+
       setStatus('ia');
-      const prompt = `Actúa como un médico especialista en electrofisiología cardiaca y marcapasos.
-Analiza TODO el texto extraído del informe del paciente e identifica primero el FABRICANTE para aplicar su regla de extracción:
+      const prompt = `Actúa como médico especialista en electrofisiología cardiaca y marcapasos.
+Analiza este texto extraído de un informe de control y extrae los datos técnicos.
 
-1. REGLAS POR MARCA:
-- BIOTRONIK:
-  * "modo": Busca en "Estado del dispositivo". Extrae el modo completo (ej. "DDDR-ADIR", "DDD", "VVI").
-  * "impA" e "impV": Busca en "Resultados de pruebas" -> "Impedancia de estimulación [Ω]". Extrae el número de la columna "A" y de la columna "V".
-  * "estimV": Busca en "Diagnóstico" -> "Estimulación en A/V [%]" (ej. "84/1" -> la V es 1) o "Vp" (ej. "1% Vp" -> 1).
-  * "batteryType": Si da porcentaje pon "percent" y en "batteryPct" el número. Si da años pon "time" con "batteryYears" y "batteryMonths".
-  * "arrModo": true si en "Cambio de modo" o "Episodios de cambio modo" hay 1 o más episodios.
+REGLAS ESPECÍFICAS DE EXTRACCIÓN:
+1. "modo": Modo de estimulación (ej: "DDD", "DDDR-ADIR", "VVIR", "VVI").
+2. "impA": Impedancia Auricular en Ohms (Ω). En Biotronik busca bajo "Impedancia de estimulación" o "Imped. electrodos" en la columna "A". En Abbott/St.Jude fila A. En Boston columna más reciente A. Extrae solo el número.
+3. "impV": Impedancia Ventricular en Ohms (Ω). Busca en "Impedancia de estimulación" o "Imped. electrodos" columna "V" o "Ventrículo". Extrae solo el número.
+4. "impShock": Solo si es DAI o Resincronizador. Caso contrario "".
+5. "estimV": Porcentaje (%) de estimulación ventricular. En Biotronik busca "Vp" o en "Estimulación en A/V [%]" (ej. "50/72" -> extrae 72) o en "Estimulación [%]: 68". Extrae solo el número.
+6. "batteryType": Si da % pon "percent". Si da años/meses pon "time".
+7. "batteryPct": Solo número si batteryType es "percent".
+8. "batteryYears": Número de años si batteryType es "time".
+9. "batteryMonths": Número de meses si batteryType es "time".
+10. "isERI": true si ERI/IRE está alcanzado o batería <25% o <1 año. Si dice ERI estimado en varios años y estado OK, pon false.
+11. "isEOL": true si Fin de Vida.
+12. "arrPMT": true si hubo episodios de PMT.
+13. "arrModo": true si hubo cambios de modo (CAM/RTA) o carga de cambio de modo > 0.
+14. "arrRuido": true si hubo reversión por ruido.
 
-- MEDTRONIC:
-  * "modo": Busca en "Resumen de parámetros" o "Modos" -> "Modo" (ej. "VVIR", "DDDR").
-  * "impA" e "impV": Busca en "Resumen del cable" la "Impedancia medida" (ohmios) para Auricular y Ventricular. Si es unicameral VVIR, impA queda vacío "".
-  * "estimV": Busca en "Estimulación (% del total)" el valor "Estimulado" del ventrículo (ej. "99.6%").
-  * "batteryType": Si dice "Vida útil restante estimada: XX meses", calcula los años y meses (ej: 28 meses = 2 años, 4 meses), "batteryType": "time".
-  * "arrModo": true si hay episodios de frecuencia rápida auricular o cambio de modo.
-
-- BOSTON SCIENTIFIC:
-  * "modo": Busca en "Parámetros antibradicardia" -> "Modo" (ej. "DDDR").
-  * "impA" e "impV": Busca en "Datos de los cables" -> fila "Impedancia de estim." el valor numérico en la columna "Más reciente" para Auricular y Ventricular (ej. 741 y 573).
-  * "estimV": Busca en "Contadores Bradi" -> "Ventricular: XX% Estim" (ej. "99% Estim" -> 99).
-  * "batteryType": Busca en "Batería" -> "Tiempo aprox. para el explante" (ej. "3 años" -> batteryType: "time", batteryYears: 3, batteryMonths: 0).
-  * "arrModo": true si hay episodios de "RTA", "Camb. modo" o arritmias auriculares.
-
-- ST. JUDE MEDICAL / ABBOTT:
-  * "modo": Busca en "Resumen FastPath" o "Parámetros" -> "Modo" (ej. "DDDR").
-  * "impA" e "impV": Busca en "Resultados del test" -> columna "Impedancia del cable" los valores en Ohms para la fila A y la fila V (ej. 460 y 510).
-  * "estimV": Busca en "Resumen de diagnósticos" -> "VP" (ej. "<1%" -> extrae 1 o 0).
-  * "batteryType": Busca en "Batería" -> "Carga restante hasta IRE: XX%" (percent) o "Longevidad: X años" (time).
-  * "arrModo": true si "Episodios de CAM" o "Cambio de modo" es >= 1.
-  * "arrPMT": true si en "Detecciones PMT" o "Episodios de PMT" es >= 1.
-
-2. CRITERIOS DE RECAMBIO (ERI / EOL):
-- "eri": true SOLO si el dispositivo alcanzó el indicador de recambio (IRE / ERI activo, batería < 1 año o < 25%). Si dice que faltan varios años o el estado es OK, pon false.
-- "eol": true SOLO si está en fin de vida / reemplazo inmediato.
-
-Devuelve ÚNICAMENTE un JSON válido, sin explicaciones ni markdown:
+Devuelve ÚNICAMENTE un objeto JSON válido:
 {
   "modo": "string",
   "impA": "string",
@@ -873,19 +873,14 @@ Devuelve ÚNICAMENTE un JSON válido, sin explicaciones ni markdown:
 Texto del documento:
 ${fullText}`;
 
-      // Intentamos con fallback automático para evitar caídas por saturación (503)
-      const candidateModels = [
-        'gemini-2.0-flash',
-        'gemini-2.5-flash',
-        'gemini-3.8-flash'
-      ];
+      const waitMs = (ms) => new Promise(res => setTimeout(res, ms));
+      let apiResultData = null;
+      let lastApiError = null;
+      const maxRetries = 3;
 
-      let data = null;
-      let lastError = null;
-
-      for (const model of candidateModels) {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
           const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -901,23 +896,30 @@ ${fullText}`;
           });
 
           if (response.ok) {
-            data = await response.json();
-            break; // Si respondió bien, salimos del bucle y seguimos
+            apiResultData = await response.json();
+            break;
           }
 
           const errText = await response.text();
-          lastError = new Error(`Status ${response.status} en ${model}: ${errText}`);
-          console.warn(`Modelo ${model} no disponible (${response.status}), probando siguiente...`);
+          lastApiError = new Error(`Intento ${attempt} falló (${response.status}): ${errText}`);
+
+          if (response.status === 503 && attempt < maxRetries) {
+            console.warn(`Servidor con alta demanda (503). Reintentando en ${attempt * 1.5}s...`);
+            await waitMs(attempt * 1500);
+          } else {
+            break;
+          }
         } catch (netErr) {
-          lastError = netErr;
+          lastApiError = netErr;
+          if (attempt < maxRetries) await waitMs(1500);
         }
       }
 
-      if (!data || !data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-        throw lastError || new Error("No se obtuvo respuesta válida de los modelos disponibles.");
+      if (!apiResultData || !apiResultData.candidates || !apiResultData.candidates[0]?.content?.parts?.[0]?.text) {
+        throw lastApiError || new Error("No se obtuvo respuesta válida de Gemini tras los reintentos.");
       }
 
-      let jsonText = data.candidates[0].content.parts[0].text;
+      let jsonText = apiResultData.candidates[0].content.parts[0].text;
       const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
       if (jsonMatch) jsonText = jsonMatch[0];
       const result = JSON.parse(jsonText);
